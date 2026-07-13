@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>レビュー設計アンケートメーカー</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --card: #ffffff;
+    --ink: #2b2a26;
+    --sub: #6b675e;
+    --accent: #c05f33;
+    --accent-soft: #f3e2d8;
+    --line: #e4e0d6;
+    --ok: #3c7a4e;
+    --warn: #b3541e;
+    --tag-lp: #2f6f8f;
+    --tag-voice: #7a4e8f;
+    --tag-price: #8f6a2f;
+    --tag-improve: #3c7a4e;
+    --tag-trust: #a04545;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.7;
+  }
+  header {
+    background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 20px 24px;
+  }
+  header h1 { font-size: 20px; }
+  header p { color: var(--sub); font-size: 13px; margin-top: 4px; }
+  .wrap {
+    display: grid; grid-template-columns: 420px 1fr; gap: 20px;
+    max-width: 1280px; margin: 20px auto; padding: 0 20px;
+  }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 20px; margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 15px; margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent-soft);
+  }
+  label.field { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  label.field span.hint { font-weight: 400; color: var(--sub); font-size: 12px; }
+  input[type=text], textarea, select {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 6px; font-size: 14px; font-family: inherit; background: #fff;
+  }
+  textarea { resize: vertical; min-height: 72px; }
+  .goals { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .goal {
+    display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+    font-size: 13px; background: #fff; transition: border-color .15s, background .15s;
+  }
+  .goal:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .goal input { margin-top: 4px; accent-color: var(--accent); }
+  .goal b { display: block; font-size: 13px; }
+  .goal small { color: var(--sub); font-size: 11px; line-height: 1.4; display: block; }
+  .btn {
+    display: inline-block; border: none; border-radius: 8px; cursor: pointer;
+    font-size: 15px; font-weight: 700; padding: 12px 20px; font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #fff; width: 100%; margin-top: 16px; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-sub {
+    background: #fff; border: 1px solid var(--line); color: var(--ink);
+    font-size: 13px; font-weight: 600; padding: 8px 14px;
+  }
+  .btn-sub:hover { border-color: var(--accent); }
+  .btn-ai { background: #3f3a56; color: #fff; font-size: 13px; padding: 8px 14px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  /* output side */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar .spacer { flex: 1; }
+  .meter {
+    display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 14px; border-radius: 8px;
+    background: var(--accent-soft); font-size: 13px; margin-bottom: 14px;
+  }
+  .meter b { font-size: 16px; }
+  .meter .warn { color: var(--warn); font-weight: 700; }
+  .q {
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 10px; background: #fff; position: relative;
+  }
+  .q .qhead { display: flex; gap: 8px; align-items: baseline; }
+  .q .num { color: var(--accent); font-weight: 700; font-size: 13px; flex-shrink: 0; }
+  .q .qtext { font-weight: 600; font-size: 14px; flex: 1; }
+  .q .meta { color: var(--sub); font-size: 12px; margin-top: 4px; }
+  .q .note { color: var(--warn); font-size: 12px; margin-top: 4px; }
+  .q .example { color: var(--sub); font-size: 12px; margin-top: 2px; }
+  .tags { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 11px; padding: 1px 8px; border-radius: 20px; color: #fff; font-weight: 600;
+  }
+  .q .del {
+    position: absolute; top: 8px; right: 10px; border: none; background: none;
+    color: var(--sub); cursor: pointer; font-size: 14px;
+  }
+  .q .del:hover { color: var(--warn); }
+  .empty { color: var(--sub); text-align: center; padding: 60px 20px; font-size: 14px; }
+  pre#plainOut {
+    white-space: pre-wrap; font-family: inherit; font-size: 13px;
+    background: #fbfaf7; border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px; max-height: 480px; overflow-y: auto;
+  }
+  .hidden { display: none !important; }
+  .ai-box { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 14px; }
+  .ai-box p { font-size: 12px; color: var(--sub); margin-bottom: 8px; }
+  .ai-row { display: flex; gap: 8px; }
+  .status { font-size: 12px; margin-top: 8px; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--warn); }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 レビュー設計アンケートメーカー</h1>
+  <p>「こんなレビューがほしい」を選ぶだけで、意図したフィードバックを引き出すアンケート設問を自動生成します</p>
+</header>
+
+<div class="wrap">
+  <!-- ===== 左：入力 ===== -->
+  <div>
+    <div class="card">
+      <h2>1. 商品・サービスの情報</h2>
+      <label class="field">アンケートの目的</label>
+      <select id="purpose" onchange="onPurposeChange()">
+        <option value="review">レビュー収集（利用後アンケート）</option>
+        <option value="fumon">不満募集キャンペーン（見込み客リスト獲得）</option>
+      </select>
+      <div id="fumonFields" class="hidden">
+        <label class="field">不満を聞きたい対象 <span class="hint">（競合サービス・今のやり方など）</span></label>
+        <input type="text" id="fumonTarget" placeholder="例：文字起こしツール、今のnote記事づくりのやり方">
+        <label class="field">1位・参加者へのプレゼント <span class="hint">（任意）</span></label>
+        <input type="text" id="fumonPrize" placeholder="例：note攻略ミニガイド、個別相談30分">
+      </div>
+      <label class="field">商品・サービス名 <span class="hint" id="nameHint">（必須）</span></label>
+      <input type="text" id="productName" placeholder="例：音声配信をnote記事に変換するツール">
+      <label class="field">どんな商品・サービスですか？ <span class="hint">（簡単でOK）</span></label>
+      <textarea id="productDesc" placeholder="例：stand.fmの音声や台本を入れると、本人らしい文体のnote記事が自動生成されるツール"></textarea>
+      <label class="field">商品タイプ</label>
+      <select id="productType">
+        <option value="tool">ツール・アプリ</option>
+        <option value="lesson">講座・レッスン</option>
+        <option value="consulting">コンサル・コーチング</option>
+        <option value="content">コンテンツ（note・教材など）</option>
+        <option value="service">その他サービス</option>
+      </select>
+      <label class="field">提供形態</label>
+      <select id="offerType">
+        <option value="monitor">モニター（無料/特別価格で試してもらった）</option>
+        <option value="paid">購入者（有料で利用してもらった）</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <h2 id="card2Title">2. どんなレビュー・フィードバックがほしい？ <span style="font-weight:400;font-size:12px;color:var(--sub)">（複数選択）</span></h2>
+      <div id="reviewOnly">
+        <div class="goals" id="goals"></div>
+        <label class="field" style="margin-top:14px">
+          <input type="checkbox" id="withPermission" checked style="accent-color:var(--accent)">
+          掲載許諾の設問を自動で付ける <span class="hint">（SNS・LP掲載に必須）</span>
+        </label>
+      </div>
+      <p id="fumonNote" class="hidden" style="font-size:13px;color:var(--sub);line-height:1.7">不満募集キャンペーンでは、「不満の言語化 → 深刻度 → 払える金額 → 連絡先（リスト獲得）」の流れに最適化した設問セットを自動で組みます。集まった不満は投票でランキング化して発表する前提の文面になります。</p>
+      <button class="btn btn-primary" onclick="generate()">アンケートを生成する</button>
+
+      <div class="ai-box">
+        <p>🤖 <b>AIモード（任意）</b>：Claude APIキーを入れると、生成した設問の文面・例文をあなたの商品に合わせて最適化します。キーはこのブラウザ内（localStorage）にのみ保存されます。</p>
+        <div class="ai-row">
+          <input type="text" id="apiKey" placeholder="sk-ant-...">
+          <button class="btn btn-ai" id="aiBtn" onclick="aiOptimize()">AI最適化</button>
+        </div>
+        <div class="status" id="aiStatus"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3. 集めた回答 → 販促素材に変換 🤖</h2>
+      <p style="font-size:12px;color:var(--sub);margin-bottom:8px">回収した回答を貼り付けると、AIが「読まれる見せ方」（ランキング形式など）に整形します。上のAIモードのAPIキーを使います。</p>
+      <label class="field">回収した回答 <span class="hint">（複数人分まとめて貼り付けてOK）</span></label>
+      <textarea id="answersInput" style="min-height:120px" placeholder="もらった回答をそのまま貼り付けてください（設問と回答のセットのままでOK）"></textarea>
+      <label class="field">作りたい素材 <span class="hint">（複数選択）</span></label>
+      <div class="goals" id="materials">
+        <label class="goal"><input type="checkbox" value="top5" checked><span><b>反響トップ5</b><small>成功事例をランキング形式に。「人気の口コミ」として読まれる</small></span></label>
+        <label class="goal"><input type="checkbox" value="moment" checked><span><b>購入直後の声トップ5</b><small>申込直後の生の一言をランキング化。鮮度＝リアリティ</small></span></label>
+        <label class="goal"><input type="checkbox" value="catch" checked><span><b>紹介キャッチフレーズ集</b><small>「誰に・どんな一言で」の紹介台本＋ビフォーアフター型コピー</small></span></label>
+        <label class="goal"><input type="checkbox" value="kaizen"><span><b>改善点ランキング（公開用）</b><small>不満を隠さず公開し「対応方針」を添えて信頼をつくる</small></span></label>
+      </div>
+      <button class="btn btn-ai" style="width:100%;margin-top:12px" id="matBtn" onclick="generateMaterials()">販促素材を生成する</button>
+      <div class="status" id="matStatus"></div>
+    </div>
+  </div>
+
+  <!-- ===== 右：出力 ===== -->
+  <div>
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn btn-sub" data-view="list" onclick="switchView('list')">設問リスト</button>
+        <button class="btn btn-sub" data-view="plain" onclick="switchView('plain')">送付用テキスト</button>
+        <button class="btn btn-sub" data-view="material" onclick="switchView('material')">販促素材</button>
+        <div class="spacer"></div>
+        <button class="btn btn-sub" onclick="copyPlain()">📋 コピー</button>
+        <button class="btn btn-sub" onclick="downloadTxt()">💾 保存</button>
+      </div>
+      <div class="meter" id="meter" style="display:none">
+        <div>設問数 <b id="mCount">0</b>問</div>
+        <div>推定回答時間 <b id="mTime">0</b>分</div>
+        <div id="mWarn"></div>
+      </div>
+      <div id="listView"><div class="empty">左側で情報を入力して「アンケートを生成する」を押してください。<br><br>生成された設問には「この回答が何に使えるか」のタグが付きます。<br>不要な設問は ✕ で外せます。</div></div>
+      <pre id="plainOut" class="hidden"></pre>
+      <pre id="materialOut" class="hidden" style="white-space:pre-wrap;font-family:inherit;font-size:13px;background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:16px;max-height:480px;overflow-y:auto"></pre>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   活用先タグ定義
+============================================================ */
+const TAGS = {
+  lp:      { label: "LP実績数値",   color: "var(--tag-lp)" },
+  voice:   { label: "お客様の声",   color: "var(--tag-voice)" },
+  price:   { label: "価格設定",     color: "var(--tag-price)" },
+  improve: { label: "改善リスト",   color: "var(--tag-improve)" },
+  trust:   { label: "信頼性担保",   color: "var(--tag-trust)" },
+  rank:    { label: "ランキング素材", color: "#2f8f7a" },
+  list:    { label: "リスト獲得",   color: "#5a7d2f" },
+};
+
+/* ============================================================
+   ゴール（欲しいレビューの種類）定義
+============================================================ */
+const GOALS = [
+  { id: "before",  label: "導入前の悩み",        desc: "「昔の自分と同じ悩みの人」に刺さる言葉が集まる", checked: true },
+  { id: "time",    label: "時間・数値の変化",     desc: "「◯分→◯分に短縮」などLPに載せられる実績数値", checked: true },
+  { id: "emotion", label: "気持ちの変化",         desc: "心理的負担の変化。共感を生むストーリー素材", checked: true },
+  { id: "voice",   label: "お客様の声・推薦文",   desc: "LP・SNSにそのまま載せられる推薦コメント", checked: true },
+  { id: "quality", label: "成果物・品質の評価",   desc: "完成度・そのまま使える度など品質の裏付け", checked: false },
+  { id: "price",   label: "価格の妥当性",         desc: "いくらなら払うか。値付けの根拠になる", checked: true },
+  { id: "target",  label: "おすすめ対象者",       desc: "ターゲット像をお客さん自身の言葉で言語化", checked: true },
+  { id: "improve", label: "改善点・要望",         desc: "次に直すべき点と有料版に欲しい機能", checked: true },
+  { id: "nps",     label: "満足度・NPS",          desc: "総合満足度と紹介意向。定番の指標", checked: false },
+  { id: "support", label: "サポートの評価",       desc: "対応の丁寧さ・速さ。人柄の信頼材料", checked: false },
+];
+
+/* ============================================================
+   設問バンク
+   note: 回答のブレ・矛盾を防ぐための注意書き（あいまい設問ガード）
+============================================================ */
+function buildQuestionBank(p) {
+  const isMonitor = p.offer === "monitor";
+  const thanks = isMonitor ? "モニターとしてご協力いただき" : "ご利用いただき";
+  return {
+    _intro: `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\n今後のサービス改善と、同じ悩みを持つ方へ分かりやすく届けるために、率直なご感想をお聞かせください。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
+
+    basic: [
+      { text: "お名前、または掲載時に使用してよいお名前を教えてください。", format: "記述式", required: true,
+        example: "本名、活動名、イニシャル、匿名希望など", tags: ["trust"] },
+      { text: "現在の活動内容を簡単に教えてください。", format: "記述式", required: true,
+        example: "配信者、講師、コーチ、カウンセラー、個人事業主など", tags: ["trust", "voice"] },
+    ],
+
+    before: [
+      { text: `「${p.name}」を使う前、どんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`, format: "長文記述", required: true,
+        example: "時間がかかっていた、やり方が分からなかった、続かなかった、など", tags: ["voice", "lp"] },
+      { text: "その悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。", format: "長文記述", required: false,
+        example: "本で調べた、他のツールを使った、何もできていなかった、など", tags: ["voice"] },
+    ],
+
+    time: [
+      { text: `「${p.name}」を使う前、同じ作業に1回あたりどれくらい時間がかかっていましたか？`, format: "数値入力（分）", required: true,
+        example: "60分、120分など",
+        note: "※これまでやったことがない作業の場合は、数字ではなく「未経験（やれていなかった）」とご記入ください。", tags: ["lp"] },
+      { text: `「${p.name}」を使った場合、同じ作業に1回あたりどれくらい時間がかかりましたか？`, format: "数値入力（分）", required: true,
+        example: "10分、30分など",
+        note: "※初期設定や使い方を覚える時間は含めず、「慣れたあとの通常利用1回分」の時間でお答えください。", tags: ["lp"] },
+      { text: "初期設定（最初の準備）には、別途どれくらい時間がかかりましたか？", format: "数値入力（分）", required: false,
+        example: "30分、60分など",
+        note: "※上の設問と分けてお答えください。初回だけかかる時間の目安として使わせていただきます。", tags: ["improve"] },
+      { text: "利用前と比べて、月あたりどれくらいの時間を削減できそうだと感じますか？", format: "選択式", required: true,
+        options: ["1時間未満", "1〜3時間", "3〜5時間", "5〜10時間", "10時間以上", "まだ判断できない"], tags: ["lp"] },
+      { text: "この作業を、今後は月に何回くらいできそうだと感じますか？（利用前の回数もあわせて教えてください）", format: "記述式", required: false,
+        example: "利用前：月0回 → 今後：月12回（週3回ペース）", tags: ["lp"] },
+    ],
+
+    emotion: [
+      { text: "この作業に対する心理的な負担は、使う前は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）", format: "10段階評価", required: true, tags: ["lp", "voice"] },
+      { text: "使った後、心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）", format: "10段階評価", required: true, tags: ["lp", "voice"] },
+      { text: "実際に使ってみて、気持ちや行動にどんな変化がありましたか？", format: "長文記述", required: true,
+        example: "気が重かった作業が楽になった、後回しにしなくなった、自信がついた、など", tags: ["voice"] },
+    ],
+
+    voice: [
+      { text: `「${p.name}」を使うと決めた瞬間（申し込んだ瞬間）、正直どんな気持ちでしたか？`, format: "記述式", required: true,
+        example: "半信半疑だった、手が震えた、「もっと早く知りたかった」と思った、など",
+        note: "※きれいな感想ではなく、そのときの「生の気持ち」をそのまま書いていただけると嬉しいです。", tags: ["voice", "rank"] },
+      { text: "特に「便利だった」「助かった」と感じた機能や場面があれば教えてください。", format: "長文記述", required: true,
+        example: "具体的な機能名や、使っていて感動した瞬間など", tags: ["voice", "lp", "rank"] },
+      { text: "「これは自分ひとりではできなかった」と感じた部分はありますか？", format: "長文記述", required: false,
+        example: "時短、クオリティ、続けられたこと、など", tags: ["voice"] },
+      { text: `「${p.name}」を使うことで、今後どんなことができそうだと感じましたか？`, format: "長文記述", required: false,
+        example: "発信を増やせそう、新しい仕事につながりそう、など", tags: ["voice"] },
+      { text: `「${p.name}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`, format: "記述式", required: true,
+        example: "「◯◯できなかった私が、◯◯できるようになった」のような形で自由にどうぞ", tags: ["voice", "lp", "rank"] },
+    ],
+
+    quality: [
+      { text: "成果物（出来上がったもの）の完成度は、100点満点でどれくらいだと感じましたか？", format: "数値入力（点）", required: true,
+        note: "※点数の理由や「あと何があれば満点か」も添えていただけると嬉しいです。", tags: ["lp", "improve"] },
+      { text: "成果物をそのまま使える度合いはどれくらいでしたか？", format: "選択式", required: true,
+        options: ["ほぼそのまま使える", "少し修正すれば使える", "半分くらい修正が必要", "大きく修正が必要", "現時点では使うのが難しい"], tags: ["lp", "improve"] },
+      { text: "修正が必要だった場合、修正にはどれくらい時間がかかりましたか？", format: "数値入力（分）", required: false,
+        example: "15分など。修正不要だった場合は「0」とご記入ください", tags: ["lp"] },
+    ],
+
+    price: [
+      { text: "もし有料サービスとして利用するとしたら、どの価格帯なら検討しやすいですか？率直な感覚でお答えください。", format: "選択式", required: true,
+        options: ["月額1,000円未満", "月額1,000円〜3,000円", "月額3,000円〜5,000円", "月額5,000円〜10,000円", "月額10,000円〜30,000円", "月額30,000円以上", "買い切りなら検討したい（金額もご記入ください）", "まだ判断できない", "有料では利用しないと思う"], tags: ["price"] },
+      { text: "上記の価格を選んだ理由を教えてください。「得られた効果」と照らし合わせて率直にご記入ください。", format: "長文記述", required: true,
+        example: "この時短効果なら月◯円まで払える、これ以上なら自分でやる、など", tags: ["price"] },
+      { text: "今後、どんな機能やサポートが追加されたら「もっと高くても使いたい」と思いますか？", format: "長文記述", required: false,
+        example: "追加機能、個別サポート、初期設定代行など", tags: ["price", "improve"] },
+    ],
+
+    target: [
+      { text: `「${p.name}」は、どんな人におすすめできそうですか？できるだけ具体的に教えてください。`, format: "長文記述", required: true,
+        example: "「◯◯で困っている、◯◯な人」のように、状況＋人物像で書いていただけると嬉しいです", tags: ["voice", "lp"] },
+      { text: "逆に「こういう人には合わないかも」と感じた点があれば教えてください。", format: "長文記述", required: false,
+        example: "正直なご意見が今後の案内文の改善に役立ちます", tags: ["improve"] },
+      { text: `もし友人・知人に「${p.name}」をすすめるとしたら、「誰に」「どんな一言で」すすめますか？`, format: "長文記述", required: false,
+        example: "「発信が続かないと言ってた◯◯さんに『△△だよ』と伝える」のように、相手＋一言のセットで", tags: ["voice", "rank"] },
+    ],
+
+    improve: [
+      { text: "使っていて分かりにくかった点・迷った点・改善してほしい点があれば教えてください。小さなことでも構いません。", format: "長文記述", required: true,
+        example: "操作で迷った場所、説明が足りなかった部分、ほしい機能など", tags: ["improve"] },
+    ],
+
+    nps: [
+      { text: "全体の満足度を教えてください。", format: "5段階評価", required: true,
+        options: ["5：とても満足", "4：満足", "3：普通", "2：やや不満", "1：不満"], tags: ["lp"] },
+      { text: `「${p.name}」を友人・知人にすすめたいと思いますか？（10＝ぜひすすめたい／0＝まったくすすめない）`, format: "10段階評価（0〜10）", required: true, tags: ["lp"] },
+    ],
+
+    support: [
+      { text: "提供者とのやり取りやサポートについて、良かった点があれば教えてください。", format: "長文記述", required: false,
+        example: "説明の分かりやすさ、対応の速さ、相談のしやすさ、安心感など", tags: ["voice", "trust"] },
+    ],
+
+    permission: [
+      { text: "今回のご感想を、サービス紹介ページやSNS等で掲載してもよろしいですか？", format: "選択式", required: true,
+        options: ["実名・活動名・プロフィールリンク付きで掲載してよい", "活動名・イニシャルであれば掲載してよい", "匿名であれば掲載してよい", "内容確認後であれば掲載してよい", "掲載は控えてほしい"], tags: ["trust"] },
+      { text: "掲載する場合、お顔写真またはSNSアイコン画像を一緒に掲載してもよろしいですか？（写真があると声の信頼性が大きく上がります）", format: "選択式", required: true,
+        options: ["顔写真の掲載OK", "SNSアイコン・イラストならOK", "画像の掲載は控えてほしい"], tags: ["trust"] },
+      { text: "掲載する場合、表現を整えるための誤字修正や一部要約をしてもよろしいですか？（内容の意味が変わる編集は行いません）", format: "選択式", required: true,
+        options: ["はい、問題ありません", "事前確認があれば問題ありません", "編集せず原文のままなら問題ありません"], tags: ["trust"] },
+      { text: "その他、伝えておきたいことがあれば自由にご記入ください。", format: "長文記述", required: false, tags: ["improve"] },
+    ],
+  };
+}
+
+/* ============================================================
+   不満募集キャンペーン用の設問バンク（見込み客リスト獲得）
+   狙い：不満の言語化 → 深刻度 → 払える金額 → 連絡先
+============================================================ */
+function buildFumonBank(target, prize) {
+  return {
+    _intro: `【「${target}」の不満・大募集キャンペーン】\n今の「${target}」について、日ごろ感じている不満・ストレスを教えてください。\nいただいた不満は投票でランキング化し、結果を発表します。${prize ? `\n見事1位に選ばれた方には「${prize}」をプレゼント！` : ""}\nきれいな意見より、生々しい本音を大歓迎します。`,
+    questions: [
+      { text: "発表時に使ってよいお名前を教えてください（ニックネーム可）。", format: "記述式", required: true,
+        example: "ニックネーム、イニシャル、匿名希望など", tags: ["trust"] },
+      { text: "現在の活動・お仕事を簡単に教えてください。", format: "記述式", required: false,
+        example: "配信者、講師、コーチ、個人事業主など", tags: ["list"] },
+      { text: `「${target}」について、今は何を使っていますか？（どうやっていますか？）`, format: "記述式", required: true,
+        example: "使っているサービス名や、今のやり方", tags: ["list"] },
+      { text: `「${target}」についての「一番の不満・ストレス」を教えてください。`, format: "長文記述", required: true,
+        example: "時間がかかりすぎる、料金が分かりにくい、結局続かない、など",
+        note: "※「どんな場面で」「何にイラッとしたか」まで書いていただけると、ランキングに採用されやすくなります。", tags: ["rank", "list"] },
+      { text: "その不満のせいで、諦めたこと・損していると感じることはありますか？", format: "長文記述", required: false,
+        example: "発信をやめてしまった、余計なお金を払った、チャンスを逃した、など", tags: ["rank", "list"] },
+      { text: "その不満の深刻さは、10点満点でどれくらいですか？（10点＝今すぐなんとかしたい／1点＝少し気になる程度）", format: "10段階評価", required: true, tags: ["list"] },
+      { text: "理想を言えば、どうなったら最高ですか？", format: "長文記述", required: true,
+        example: "「◯◯するだけで△△になってほしい」など、わがままなレベルでOKです", tags: ["list", "price"] },
+      { text: "もしその不満をまるごと解決できるサービスがあったら、月いくらまでなら検討できそうですか？", format: "選択式", required: true,
+        options: ["月額1,000円未満", "月額1,000円〜3,000円", "月額3,000円〜5,000円", "月額5,000円〜10,000円", "月額10,000円以上", "解決できるなら金額は問わない", "お金を払ってまでは解決したくない"], tags: ["price", "list"] },
+      { text: "ランキング結果の発表とプレゼントお受け取りのため、ご連絡先（受け取り方法）を教えてください。", format: "記述式", required: true,
+        example: "公式LINEに登録済み／メールアドレスなど",
+        note: "※結果発表とプレゼントのご案内はこちらにお送りします。", tags: ["list"] },
+      { text: "いただいた不満は、匿名（ニックネーム）でランキング企画・記事に掲載してもよろしいですか？", format: "選択式", required: true,
+        options: ["はい、掲載OK", "内容確認後であればOK", "掲載は控えてほしい"], tags: ["trust"] },
+    ],
+  };
+}
+
+/* ============================================================
+   状態
+============================================================ */
+let questions = [];   // 生成された設問（削除可能）
+let introText = "";
+let materialText = ""; // 生成された販促素材
+
+/* API呼び出しの失敗を分かりやすい日本語に変換 */
+function friendlyAiError(e) {
+  const m = String(e && e.message || e);
+  if (/Failed to fetch|NetworkError|Load failed|CSP|Content Security/i.test(m)) {
+    return "この共有ページではAI機能が使えません（ブラウザのセキュリティ制限）。AI機能を使うには、配布用のHTMLファイルをダウンロードしてPCのブラウザで開いてください。設問の生成・コピー・保存はこのページのままで使えます。";
+  }
+  return m;
+}
+
+/* ============================================================
+   初期化
+============================================================ */
+const goalsEl = document.getElementById("goals");
+GOALS.forEach(g => {
+  const label = document.createElement("label");
+  label.className = "goal";
+  label.innerHTML = `<input type="checkbox" value="${g.id}" ${g.checked ? "checked" : ""}><span><b>${g.label}</b><small>${g.desc}</small></span>`;
+  goalsEl.appendChild(label);
+});
+document.getElementById("apiKey").value = localStorage.getItem("survey_maker_api_key") || "";
+
+/* ============================================================
+   生成
+============================================================ */
+function onPurposeChange() {
+  const isFumon = document.getElementById("purpose").value === "fumon";
+  document.getElementById("fumonFields").classList.toggle("hidden", !isFumon);
+  document.getElementById("reviewOnly").classList.toggle("hidden", isFumon);
+  document.getElementById("fumonNote").classList.toggle("hidden", !isFumon);
+  document.getElementById("nameHint").textContent = isFumon ? "（任意・素材変換で使います）" : "（必須）";
+  document.getElementById("card2Title").innerHTML = isFumon
+    ? "2. キャンペーンの設問セット"
+    : '2. どんなレビュー・フィードバックがほしい？ <span style="font-weight:400;font-size:12px;color:var(--sub)">（複数選択）</span>';
+}
+
+function generate() {
+  // 不満募集キャンペーンモード
+  if (document.getElementById("purpose").value === "fumon") {
+    const target = document.getElementById("fumonTarget").value.trim();
+    if (!target) { showToast("「不満を聞きたい対象」を入力してください"); return; }
+    const fb = buildFumonBank(target, document.getElementById("fumonPrize").value.trim());
+    introText = fb._intro;
+    questions = [...fb.questions];
+    render();
+    switchView("list");
+    return;
+  }
+  // レビュー収集モード
+  const name = document.getElementById("productName").value.trim();
+  if (!name) { showToast("商品・サービス名を入力してください"); return; }
+  const p = {
+    name,
+    desc: document.getElementById("productDesc").value.trim(),
+    type: document.getElementById("productType").value,
+    offer: document.getElementById("offerType").value,
+  };
+  const bank = buildQuestionBank(p);
+  const selected = [...document.querySelectorAll("#goals input:checked")].map(el => el.value);
+  if (selected.length === 0) { showToast("ほしいレビューの種類を1つ以上選んでください"); return; }
+
+  introText = bank._intro;
+  questions = [...bank.basic];
+  // 回答者の心理的な流れに沿った順序：悩み → 数値 → 感情 → 声 → 品質 → 対象者 → 改善 → 満足度 → 価格 → サポート
+  const order = ["before", "time", "emotion", "voice", "quality", "target", "improve", "nps", "price", "support"];
+  order.forEach(k => { if (selected.includes(k)) questions.push(...bank[k]); });
+  if (document.getElementById("withPermission").checked) questions.push(...bank.permission);
+
+  render();
+  switchView("list");
+}
+
+/* ============================================================
+   描画
+============================================================ */
+const TIME_PER_FORMAT = { "長文記述": 3, "記述式": 1.5 }; // その他は0.5分
+function estimateMinutes(q) { return TIME_PER_FORMAT[q.format] ?? 0.5; }
+
+function render() {
+  const listEl = document.getElementById("listView");
+  if (questions.length === 0) {
+    listEl.innerHTML = '<div class="empty">設問がありません。左側から再生成してください。</div>';
+    document.getElementById("meter").style.display = "none";
+    return;
+  }
+  listEl.innerHTML = questions.map((q, i) => `
+    <div class="q">
+      <button class="del" onclick="removeQ(${i})" title="この設問を外す">✕</button>
+      <div class="qhead"><span class="num">Q${i + 1}</span><span class="qtext">${esc(q.text)}</span></div>
+      <div class="meta">【${q.format}】${q.required ? "【必須】" : "【任意】"}${q.options ? "　選択肢：" + q.options.join(" / ") : ""}</div>
+      ${q.example ? `<div class="example">例：${esc(q.example)}</div>` : ""}
+      ${q.note ? `<div class="note">${esc(q.note)}</div>` : ""}
+      <div class="tags">${(q.tags || []).map(t => TAGS[t] ? `<span class="tag" style="background:${TAGS[t].color}">${TAGS[t].label}</span>` : "").join("")}</div>
+    </div>`).join("");
+
+  // 回答負担メーター
+  const total = Math.ceil(questions.reduce((s, q) => s + estimateMinutes(q), 0));
+  const requiredLong = questions.filter(q => q.format === "長文記述" && q.required).length;
+  document.getElementById("meter").style.display = "flex";
+  document.getElementById("mCount").textContent = questions.length;
+  document.getElementById("mTime").textContent = total;
+  const warnEl = document.getElementById("mWarn");
+  if (total > 20) {
+    warnEl.innerHTML = '<span class="warn">⚠ 回答時間が20分超。途中離脱の恐れがあるため、任意の設問を減らすのがおすすめです</span>';
+  } else if (requiredLong > 6) {
+    warnEl.innerHTML = '<span class="warn">⚠ 必須の長文設問が' + requiredLong + '問。いくつか任意に緩めると回答率が上がります</span>';
+  } else {
+    warnEl.innerHTML = '<span style="color:var(--ok)">✓ 回答負担は適正範囲です</span>';
+  }
+
+  document.getElementById("plainOut").textContent = toPlainText();
+}
+
+function removeQ(i) { questions.splice(i, 1); render(); }
+
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+/* ============================================================
+   出力テキスト
+============================================================ */
+function toPlainText() {
+  let out = introText + "\n\n";
+  questions.forEach((q, i) => {
+    out += `Q${i + 1}. ${q.text}\n`;
+    if (q.example) out += `　例：${q.example}\n`;
+    if (q.note) out += `　${q.note}\n`;
+    out += `　【回答形式】${q.format}`;
+    if (q.options) out += `\n　${q.options.map(o => "・" + o).join("\n　")}`;
+    out += `\n　${q.required ? "【必須】" : "【任意】"}\n\n`;
+  });
+  return out.trim();
+}
+
+let currentView = "list";
+function switchView(view) {
+  currentView = view;
+  document.getElementById("listView").classList.toggle("hidden", view !== "list");
+  document.getElementById("plainOut").classList.toggle("hidden", view !== "plain");
+  document.getElementById("materialOut").classList.toggle("hidden", view !== "material");
+  document.getElementById("meter").style.display = (view !== "material" && questions.length > 0) ? "flex" : "none";
+  if (view === "material" && !document.getElementById("materialOut").textContent) {
+    document.getElementById("materialOut").textContent = "まだ素材がありません。\n\n左下の「3. 集めた回答 → 販促素材に変換」に回収した回答を貼り付けて生成してください。";
+  }
+  document.querySelectorAll(".toolbar [data-view]").forEach(b => {
+    b.style.borderColor = b.dataset.view === view ? "var(--accent)" : "var(--line)";
+    b.style.color = b.dataset.view === view ? "var(--accent)" : "var(--ink)";
+  });
+}
+
+function currentOutput() {
+  if (currentView === "material") {
+    const t = materialText;
+    if (!t) { showToast("先に販促素材を生成してください"); return null; }
+    return { text: t, name: "販促素材" };
+  }
+  if (questions.length === 0) { showToast("先にアンケートを生成してください"); return null; }
+  return { text: toPlainText(), name: "アンケート" };
+}
+
+function copyPlain() {
+  const out = currentOutput();
+  if (!out) return;
+  navigator.clipboard.writeText(out.text).then(() => showToast("コピーしました"));
+}
+
+function downloadTxt() {
+  const out = currentOutput();
+  if (!out) return;
+  const blob = new Blob([out.text], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = out.name + "_" + (document.getElementById("productName").value.trim() || document.getElementById("fumonTarget").value.trim() || "output") + ".txt";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ============================================================
+   AIモード：Claude APIで設問文・例文を商品に合わせて最適化
+   モデル選定：分析・生成タスク → claude-sonnet-4-6
+   max_tokens：設問リスト書き換え（実出力量ベースで個別設定）→ 8000
+============================================================ */
+async function aiOptimize() {
+  if (questions.length === 0) { showToast("先にアンケートを生成してください"); return; }
+  const key = document.getElementById("apiKey").value.trim();
+  const statusEl = document.getElementById("aiStatus");
+  if (!key) { statusEl.className = "status err"; statusEl.textContent = "APIキーを入力してください"; return; }
+  localStorage.setItem("survey_maker_api_key", key);
+
+  const btn = document.getElementById("aiBtn");
+  btn.disabled = true;
+  statusEl.className = "status";
+  statusEl.textContent = "AIが設問を最適化中…（30秒ほどかかります）";
+
+  const productInfo = `アンケートの目的：${document.getElementById("purpose").selectedOptions[0].textContent}\n商品名：${document.getElementById("productName").value.trim() || "（未入力）"}\n商品説明：${document.getElementById("productDesc").value.trim() || "（説明なし）"}\n商品タイプ：${document.getElementById("productType").selectedOptions[0].textContent}\n提供形態：${document.getElementById("offerType").selectedOptions[0].textContent}${document.getElementById("purpose").value === "fumon" ? `\n不満を聞きたい対象：${document.getElementById("fumonTarget").value.trim()}` : ""}`;
+
+  const qJson = JSON.stringify(questions.map(q => ({
+    text: q.text, format: q.format, required: q.required,
+    example: q.example || null, note: q.note || null, options: q.options || null, tags: q.tags,
+  })), null, 0);
+
+  const prompt = `あなたはレビュー収集アンケートの設計専門家です。以下の商品情報に合わせて、アンケート設問リストをカスタマイズしてください。
+
+# 商品情報
+${productInfo}
+
+# 現在の設問リスト（JSON）
+${qJson}
+
+# カスタマイズのルール
+1. 設問の意図・順序・数・format・required・tags は変えない
+2. text と example を、この商品の具体的な作業内容・利用シーンに合わせた自然な表現に書き換える（例文は回答者が真似しやすい具体例にする）
+3. note（回答のブレを防ぐ注意書き）は残す。商品に合わせてより具体的にしてよい
+4. options がある設問は options を変えない
+5. 出力はJSON配列のみ。前置き・説明・コードブロック記号は不要
+
+JSON配列のみを出力してください。`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 8000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `APIエラー（${res.status}）`);
+    }
+    const data = await res.json();
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    const jsonStr = text.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+    const optimized = JSON.parse(jsonStr);
+    if (!Array.isArray(optimized) || optimized.length === 0) throw new Error("AIの出力形式が不正でした");
+    questions = optimized;
+    render();
+    statusEl.className = "status ok";
+    statusEl.textContent = "✓ 最適化が完了しました。設問リストを確認してください";
+  } catch (e) {
+    statusEl.className = "status err";
+    statusEl.textContent = "エラー：" + friendlyAiError(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ============================================================
+   回答→販促素材変換：集めた回答をランキング形式などに整形
+   モデル選定：分析・生成タスク → claude-sonnet-4-6
+   max_tokens：素材4種×各800〜1200トークン想定 → 6000（個別設定）
+============================================================ */
+const MATERIAL_SPECS = {
+  top5: `## 反響トップ5（成功事例ランキング）
+「反響が多かった成功事例トップ5」として、インパクトの強い順にランキング化する。
+各順位は「第N位：見出しコピー」＋ 回答者の声の引用（原文の言葉を活かす）＋（属性）の形式。
+見出しコピーは「最初は怪しいと思っていました」「もっと早く知りたかった」のような、続きを読みたくなる一言にする。`,
+  moment: `## 購入直後の声トップ5
+「申し込んだ瞬間・使うと決めた瞬間の声」だけを抜き出してランキング化する。
+短い生の一言をそのまま使う（例：「手が震えました」「半信半疑でした」）。加工しすぎない。鮮度とリアリティが命。`,
+  catch: `## 紹介キャッチフレーズ集
+(1)「誰に → どんな一言で」の紹介台本を5本（回答の「おすすめできる人」「すすめるなら」から作る）。
+(2) ビフォー→アフター型の一言コピーを5本（「◯◯だった私が、◯◯になった」形式。回答の変化の記述から作る）。
+どちらも、紹介する人がそのまま口に出せる長さにする。`,
+  kaizen: `## 改善点ランキング（公開用）
+回答にあった不満・分かりにくかった点を隠さずランキング化する。
+各項目に「▶ 対応方針：」という記入欄を空けておく（提供者が「◯月に直します」「意図があって残します」を書き込む前提）。
+改善を見せることで信頼をつくる、という趣旨の短い前書きを冒頭に付ける。`,
+};
+
+async function generateMaterials() {
+  const answers = document.getElementById("answersInput").value.trim();
+  const statusEl = document.getElementById("matStatus");
+  if (!answers) { statusEl.className = "status err"; statusEl.textContent = "回収した回答を貼り付けてください"; return; }
+  const key = document.getElementById("apiKey").value.trim();
+  if (!key) { statusEl.className = "status err"; statusEl.textContent = "上のAIモード欄にAPIキーを入力してください"; return; }
+  const selected = [...document.querySelectorAll("#materials input:checked")].map(el => el.value);
+  if (selected.length === 0) { statusEl.className = "status err"; statusEl.textContent = "作りたい素材を1つ以上選んでください"; return; }
+  localStorage.setItem("survey_maker_api_key", key);
+
+  const btn = document.getElementById("matBtn");
+  btn.disabled = true;
+  statusEl.className = "status";
+  statusEl.textContent = "AIが素材を生成中…（30秒〜1分ほどかかります）";
+
+  const productInfo = `商品名：${document.getElementById("productName").value.trim() || "（未入力）"}\n商品説明：${document.getElementById("productDesc").value.trim() || "（説明なし）"}`;
+  const specs = selected.map(k => MATERIAL_SPECS[k]).join("\n\n");
+
+  const prompt = `あなたは「お客様の声」を売れる販促素材に編集する専門家です。以下のアンケート回答をもとに、指定された素材を作成してください。
+
+# 商品情報
+${productInfo}
+
+# アンケート回答（原文）
+${answers}
+
+# 作成する素材と形式
+${specs}
+
+# 編集の絶対ルール
+1. 回答に書かれていない事実・数字・エピソードを絶対に作らない（捏造禁止）。素材にできる材料が回答内に足りない場合は、その素材の欄に「※この素材を作るには◯◯についての回答が不足しています」と書く
+2. 回答者本人の言葉・言い回しを最優先で活かす（きれいに直しすぎない。生の言葉がいちばん強い）
+3. 回答者名は「（お名前）」のプレースホルダにする（掲載許諾を確認してから記入する運用のため）。属性（例：話し方講師）は回答にあれば使ってよい
+4. 見出し以外に飾り記号を多用しない。SNSやLPにそのまま貼れるプレーンテキストで出力する
+5. 前置き・締めの挨拶は不要。素材のみを出力する`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 6000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `APIエラー（${res.status}）`);
+    }
+    const data = await res.json();
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+    if (!text) throw new Error("AIの出力が空でした");
+    materialText = text;
+    document.getElementById("materialOut").textContent = materialText;
+    switchView("material");
+    statusEl.className = "status ok";
+    statusEl.textContent = "✓ 素材ができました。右側の「販促素材」タブを確認してください";
+  } catch (e) {
+    statusEl.className = "status err";
+    statusEl.textContent = "エラー：" + friendlyAiError(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
