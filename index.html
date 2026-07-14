@@ -304,6 +304,10 @@
         このツールは <b>「アンケートを作る → お客様に送る → 集めた回答を販促素材に変える」</b> までを一気通貫でサポートします。基本は無料で使え、AI機能（設問の最適化・素材変換）だけ Claude の API キーが必要です。
       </p>
 
+      <div class="guide-callout">
+        <b>入力した内容は、このブラウザの中だけで扱われます</b>（外部のサーバーには保存されません）。そのぶん、ページを閉じたり再読み込みしたりすると入力内容は消えます。作ったアンケートや素材は、閉じる前に右上の <b>「📋 コピー」または「💾 保存」</b> をしておいてください。
+      </div>
+
       <div class="guide-sec-title">基本の流れ（3ステップ）</div>
 
       <div class="guide-step">
@@ -373,8 +377,7 @@
 
       <div class="guide-callout" style="background:#fbfaf7;border:1px solid var(--line)">
         <b style="color:var(--ink)">困ったとき</b><br>
-        ・AIボタンでエラーが出る → API キーが正しいか確認。広告ブロッカーが通信を止めている場合はオフに。<br>
-        ・入力した内容は保存されません。ページを閉じる前に「コピー」か「保存」をしてください。
+        AIボタンを押してエラーが出たときは、まず API キーが正しく入力されているか確認してください。それでも直らない場合は、インターネットにつながっているか確認し、少し時間をおいてもう一度お試しください。
       </div>
     </div>
   </div>
@@ -572,7 +575,7 @@ let materialText = ""; // 生成された販促素材
 function friendlyAiError(e) {
   const m = String(e && e.message || e);
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) {
-    return "Anthropic APIに接続できませんでした。ネットワーク接続をご確認ください。広告ブロッカーやセキュリティ系の拡張機能が通信を止めている場合は、このページでオフにしてお試しください。";
+    return "Anthropic APIに接続できませんでした。インターネットにつながっているか確認して、少し時間をおいてもう一度お試しください。";
   }
   if (/invalid x-api-key|authentication/i.test(m)) {
     return "APIキーが正しくないようです。キーに間違いがないか確認して、入力し直してください。";
