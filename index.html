@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://api.anthropic.com; base-uri 'none'; form-action 'none'">
 <title>レビュー設計アンケートメーカー</title>
 <style>
   :root {
@@ -179,10 +180,11 @@
       <button class="btn btn-primary" onclick="generate()">アンケートを生成する</button>
 
       <div class="ai-box">
-        <p>🤖 <b>AIモード（任意）</b>：Claude APIキーを入れると、生成した設問の文面・例文をあなたの商品に合わせて最適化します。キーはこのブラウザ内（localStorage）にのみ保存されます。</p>
+        <p>🤖 <b>AIモード（任意）</b>：Claude APIキーを入れると、生成した設問の文面・例文をあなたの商品に合わせて最適化します。キーはこのブラウザ内（localStorage）にのみ保存され、送信先はAnthropic APIだけです。共用のパソコンでは、使い終わったら「キー削除」を押してください。</p>
         <div class="ai-row">
-          <input type="text" id="apiKey" placeholder="sk-ant-...">
+          <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
           <button class="btn btn-ai" id="aiBtn" onclick="aiOptimize()">AI最適化</button>
+          <button class="btn btn-sub" onclick="clearKey()" title="このブラウザに保存したAPIキーを消します">キー削除</button>
         </div>
         <div class="status" id="aiStatus"></div>
       </div>
@@ -190,9 +192,10 @@
 
     <div class="card">
       <h2>3. 集めた回答 → 販促素材に変換 🤖</h2>
-      <p style="font-size:12px;color:var(--sub);margin-bottom:8px">回収した回答を貼り付けると、AIが「読まれる見せ方」（ランキング形式など）に整形します。上のAIモードのAPIキーを使います。</p>
+      <p style="font-size:12px;color:var(--sub);margin-bottom:8px">回収した回答を貼り付けると、AIが「読まれる見せ方」（ランキング形式など）に整形します。上のAIモードのAPIキーを使います。<br><b>Googleフォームで集めた場合：</b>フォームの「回答」タブ→スプレッドシートを開き、全選択（Ctrl+A / Cmd+A）してコピー→そのままここに貼り付けでOKです。</p>
       <label class="field">回収した回答 <span class="hint">（複数人分まとめて貼り付けてOK）</span></label>
-      <textarea id="answersInput" style="min-height:120px" placeholder="もらった回答をそのまま貼り付けてください（設問と回答のセットのままでOK）"></textarea>
+      <textarea id="answersInput" style="min-height:120px" placeholder="もらった回答をそのまま貼り付けてください（Googleフォームの回答シートを丸ごとコピーでもOK）"></textarea>
+      <div class="status ok" id="ansCount"></div>
       <label class="field">作りたい素材 <span class="hint">（複数選択）</span></label>
       <div class="goals" id="materials">
         <label class="goal"><input type="checkbox" value="top5" checked><span><b>反響トップ5</b><small>成功事例をランキング形式に。「人気の口コミ」として読まれる</small></span></label>
@@ -211,6 +214,7 @@
       <div class="toolbar">
         <button class="btn btn-sub" data-view="list" onclick="switchView('list')">設問リスト</button>
         <button class="btn btn-sub" data-view="plain" onclick="switchView('plain')">送付用テキスト</button>
+        <button class="btn btn-sub" data-view="gas" onclick="switchView('gas')">Gフォーム変換</button>
         <button class="btn btn-sub" data-view="material" onclick="switchView('material')">販促素材</button>
         <div class="spacer"></div>
         <button class="btn btn-sub" onclick="copyPlain()">📋 コピー</button>
@@ -223,6 +227,7 @@
       </div>
       <div id="listView"><div class="empty">左側で情報を入力して「アンケートを生成する」を押してください。<br><br>生成された設問には「この回答が何に使えるか」のタグが付きます。<br>不要な設問は ✕ で外せます。</div></div>
       <pre id="plainOut" class="hidden"></pre>
+      <pre id="gasOut" class="hidden" style="white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:16px;max-height:480px;overflow-y:auto"></pre>
       <pre id="materialOut" class="hidden" style="white-space:pre-wrap;font-family:inherit;font-size:13px;background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:16px;max-height:480px;overflow-y:auto"></pre>
     </div>
   </div>
@@ -419,8 +424,11 @@ let materialText = ""; // 生成された販促素材
 /* API呼び出しの失敗を分かりやすい日本語に変換 */
 function friendlyAiError(e) {
   const m = String(e && e.message || e);
-  if (/Failed to fetch|NetworkError|Load failed|CSP|Content Security/i.test(m)) {
-    return "この共有ページではAI機能が使えません（ブラウザのセキュリティ制限）。AI機能を使うには、配布用のHTMLファイルをダウンロードしてPCのブラウザで開いてください。設問の生成・コピー・保存はこのページのままで使えます。";
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) {
+    return "Anthropic APIに接続できませんでした。ネットワーク接続をご確認ください。広告ブロッカーやセキュリティ系の拡張機能が通信を止めている場合は、このページでオフにしてお試しください。";
+  }
+  if (/invalid x-api-key|authentication/i.test(m)) {
+    return "APIキーが正しくないようです。キーに間違いがないか確認して、入力し直してください。";
   }
   return m;
 }
@@ -436,6 +444,12 @@ GOALS.forEach(g => {
   goalsEl.appendChild(label);
 });
 document.getElementById("apiKey").value = localStorage.getItem("survey_maker_api_key") || "";
+
+// Googleフォーム回答シートの貼り付けを検出して件数を表示（タイムスタンプ列で数える）
+document.getElementById("answersInput").addEventListener("input", (e) => {
+  const n = (e.target.value.match(/\d{4}\/\d{1,2}\/\d{1,2} \d{1,2}:\d{2}/g) || []).length;
+  document.getElementById("ansCount").textContent = n > 0 ? `✓ Googleフォームの回答 ${n}件分を検出しました` : "";
+});
 
 /* ============================================================
    生成
@@ -504,7 +518,7 @@ function render() {
     <div class="q">
       <button class="del" onclick="removeQ(${i})" title="この設問を外す">✕</button>
       <div class="qhead"><span class="num">Q${i + 1}</span><span class="qtext">${esc(q.text)}</span></div>
-      <div class="meta">【${q.format}】${q.required ? "【必須】" : "【任意】"}${q.options ? "　選択肢：" + q.options.join(" / ") : ""}</div>
+      <div class="meta">【${esc(q.format)}】${q.required ? "【必須】" : "【任意】"}${q.options ? "　選択肢：" + esc(q.options.join(" / ")) : ""}</div>
       ${q.example ? `<div class="example">例：${esc(q.example)}</div>` : ""}
       ${q.note ? `<div class="note">${esc(q.note)}</div>` : ""}
       <div class="tags">${(q.tags || []).map(t => TAGS[t] ? `<span class="tag" style="background:${TAGS[t].color}">${TAGS[t].label}</span>` : "").join("")}</div>
@@ -548,13 +562,67 @@ function toPlainText() {
   return out.trim();
 }
 
+/* ============================================================
+   Googleフォーム自動作成スクリプト（Google Apps Script）を生成
+   設問を1問ずつ手でフォームに移す作業をなくす
+============================================================ */
+function toGasScript() {
+  const j = JSON.stringify;
+  const introLines = introText.split("\n");
+  const title = introLines[0].replace(/[【】]/g, "");
+  const desc = introLines.slice(1).join("\n");
+  const lines = [
+    "/*",
+    " Googleフォーム自動作成スクリプト（レビュー設計アンケートメーカーが生成）",
+    "",
+    " ▼使い方（1分で終わります）",
+    " 1. https://script.google.com を開き「新しいプロジェクト」を作成",
+    " 2. 最初から入っているコードを全部消して、このコードを貼り付けて保存（Ctrl+S / Cmd+S）",
+    " 3. 上部の「実行」ボタンを押す（初回はGoogleの確認画面が出ます →「許可」）",
+    " 4. 画面下の実行ログに出る「回答用URL」をお客様に送るだけ",
+    "",
+    " ※フォーム本体はあなたのGoogleドライブに保存されます",
+    " ※回答の確認：フォーム編集画面の「回答」タブ →「スプレッドシートにリンク」を押すと、",
+    "   回答が自動でスプレッドシートに溜まっていきます（これがそのまま回答データベースになります）",
+    "*/",
+    "function createForm() {",
+    `  const form = FormApp.create(${j(title)});`,
+    `  form.setDescription(${j(desc)});`,
+  ];
+  questions.forEach(q => {
+    const help = [q.example ? "例：" + q.example : "", q.note || ""].filter(Boolean).join("\n");
+    const req = `.setRequired(${!!q.required})`;
+    const helpCall = help ? `.setHelpText(${j(help)})` : "";
+    if (q.format === "長文記述") {
+      lines.push(`  form.addParagraphTextItem().setTitle(${j(q.text)})${helpCall}${req};`);
+    } else if (q.options) {
+      lines.push(`  form.addMultipleChoiceItem().setTitle(${j(q.text)})${helpCall}.setChoiceValues(${j(q.options)})${req};`);
+    } else if (/10段階/.test(q.format)) {
+      const low = /0〜10/.test(q.format) ? 0 : 1;
+      lines.push(`  form.addScaleItem().setTitle(${j(q.text)})${helpCall}.setBounds(${low}, 10)${req};`);
+    } else {
+      lines.push(`  form.addTextItem().setTitle(${j(q.text)})${helpCall}${req};`);
+    }
+  });
+  lines.push('  Logger.log("回答用URL（お客様に送る）: " + form.getPublishedUrl());');
+  lines.push('  Logger.log("編集用URL（自分用）: " + form.getEditUrl());');
+  lines.push("}");
+  return lines.join("\n");
+}
+
 let currentView = "list";
 function switchView(view) {
   currentView = view;
   document.getElementById("listView").classList.toggle("hidden", view !== "list");
   document.getElementById("plainOut").classList.toggle("hidden", view !== "plain");
+  document.getElementById("gasOut").classList.toggle("hidden", view !== "gas");
   document.getElementById("materialOut").classList.toggle("hidden", view !== "material");
-  document.getElementById("meter").style.display = (view !== "material" && questions.length > 0) ? "flex" : "none";
+  document.getElementById("meter").style.display = ((view === "list" || view === "plain") && questions.length > 0) ? "flex" : "none";
+  if (view === "gas") {
+    document.getElementById("gasOut").textContent = questions.length > 0
+      ? toGasScript()
+      : "まだアンケートがありません。\n\n先に左側で「アンケートを生成する」を押してください。\n生成後にこのタブを開くと、Googleフォームを自動作成するスクリプトが表示されます。";
+  }
   if (view === "material" && !document.getElementById("materialOut").textContent) {
     document.getElementById("materialOut").textContent = "まだ素材がありません。\n\n左下の「3. 集めた回答 → 販促素材に変換」に回収した回答を貼り付けて生成してください。";
   }
@@ -571,6 +639,7 @@ function currentOutput() {
     return { text: t, name: "販促素材" };
   }
   if (questions.length === 0) { showToast("先にアンケートを生成してください"); return null; }
+  if (currentView === "gas") return { text: toGasScript(), name: "Googleフォーム作成スクリプト" };
   return { text: toPlainText(), name: "アンケート" };
 }
 
@@ -589,6 +658,12 @@ function downloadTxt() {
   a.download = out.name + "_" + (document.getElementById("productName").value.trim() || document.getElementById("fumonTarget").value.trim() || "output") + ".txt";
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function clearKey() {
+  localStorage.removeItem("survey_maker_api_key");
+  document.getElementById("apiKey").value = "";
+  showToast("保存していたAPIキーを削除しました");
 }
 
 let toastTimer;
