@@ -30,9 +30,17 @@
   header {
     background: var(--card); border-bottom: 1px solid var(--line);
     padding: 20px 24px;
+    display: flex; align-items: center; gap: 16px;
   }
+  header .htext { flex: 1; }
   header h1 { font-size: 20px; }
   header p { color: var(--sub); font-size: 13px; margin-top: 4px; }
+  .btn-guide {
+    flex-shrink: 0; background: var(--accent); color: #fff; border: none;
+    border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .btn-guide:hover { opacity: .9; }
   .wrap {
     display: grid; grid-template-columns: 420px 1fr; gap: 20px;
     max-width: 1280px; margin: 20px auto; padding: 0 20px;
@@ -123,13 +131,64 @@
     font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none;
   }
   .toast.show { opacity: 1; }
+  /* 使い方ガイド モーダル */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(43,42,38,.55);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 40px 16px; overflow-y: auto; z-index: 100;
+  }
+  .modal {
+    background: var(--card); border-radius: 12px; max-width: 760px; width: 100%;
+    padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,.25); margin: auto;
+  }
+  .modal-head {
+    position: sticky; top: 0; background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 18px 24px; display: flex; align-items: center; gap: 12px;
+    border-radius: 12px 12px 0 0;
+  }
+  .modal-head h2 { font-size: 18px; flex: 1; }
+  .modal-close {
+    border: none; background: var(--accent-soft); color: var(--accent);
+    width: 32px; height: 32px; border-radius: 8px; font-size: 18px; cursor: pointer;
+    flex-shrink: 0; line-height: 1;
+  }
+  .modal-close:hover { background: var(--accent); color: #fff; }
+  .modal-body { padding: 8px 24px 28px; }
+  .guide-step {
+    display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line);
+  }
+  .guide-step:last-child { border-bottom: none; }
+  .guide-num {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .guide-step h3 { font-size: 15px; margin-bottom: 4px; }
+  .guide-step p { font-size: 13.5px; color: var(--ink); line-height: 1.75; }
+  .guide-step .sub { color: var(--sub); font-size: 12.5px; margin-top: 4px; }
+  .guide-sec-title {
+    font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .04em;
+    margin: 24px 0 4px; padding-bottom: 6px; border-bottom: 2px solid var(--accent-soft);
+  }
+  .guide-callout {
+    background: var(--accent-soft); border-radius: 8px; padding: 12px 14px;
+    font-size: 13px; line-height: 1.75; margin: 16px 0;
+  }
+  .guide-callout b { color: var(--accent); }
+  .guide-body code {
+    background: #fbfaf7; border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-size: 12px; font-family: ui-monospace, Menlo, monospace;
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>📋 レビュー設計アンケートメーカー</h1>
-  <p>「こんなレビューがほしい」を選ぶだけで、意図したフィードバックを引き出すアンケート設問を自動生成します</p>
+  <div class="htext">
+    <h1>📋 レビュー設計アンケートメーカー</h1>
+    <p>「こんなレビューがほしい」を選ぶだけで、意図したフィードバックを引き出すアンケート設問を自動生成します</p>
+  </div>
+  <button class="btn-guide" onclick="openGuide()">📖 使い方ガイド</button>
 </header>
 
 <div class="wrap">
@@ -229,6 +288,94 @@
       <pre id="plainOut" class="hidden"></pre>
       <pre id="gasOut" class="hidden" style="white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:16px;max-height:480px;overflow-y:auto"></pre>
       <pre id="materialOut" class="hidden" style="white-space:pre-wrap;font-family:inherit;font-size:13px;background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:16px;max-height:480px;overflow-y:auto"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 使い方ガイド モーダル ===== -->
+<div class="modal-overlay hidden" id="guideModal" onclick="if(event.target===this)closeGuide()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>📖 使い方ガイド</h2>
+      <button class="modal-close" onclick="closeGuide()" title="閉じる">✕</button>
+    </div>
+    <div class="modal-body guide-body">
+      <p style="font-size:13.5px;color:var(--sub);line-height:1.75;margin-bottom:8px">
+        このツールは <b>「アンケートを作る → お客様に送る → 集めた回答を販促素材に変える」</b> までを一気通貫でサポートします。基本は無料で使え、AI機能（設問の最適化・素材変換）だけ Claude の API キーが必要です。
+      </p>
+
+      <div class="guide-sec-title">基本の流れ（3ステップ）</div>
+
+      <div class="guide-step">
+        <div class="guide-num">1</div>
+        <div>
+          <h3>アンケートを作る</h3>
+          <p>左側で商品・サービス名を入れ、「どんなレビューがほしいか」をチェックして <b>「アンケートを生成する」</b> を押します。設問が右側に出ます。</p>
+          <p class="sub">・各設問には「この回答が何に使えるか」のタグ（LP実績数値・お客様の声・価格設定など）が付きます。<br>・不要な設問は設問カード右上の <b>✕</b> で外せます。<br>・上部の「回答負担メーター」で、答えるのにかかる時間の目安が分かります（20分を超えると離脱しやすいので警告が出ます）。</p>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-num">2</div>
+        <div>
+          <h3>お客様に送る</h3>
+          <p>右上のタブで送り方を選びます。</p>
+          <p class="sub">
+            ・<b>送付用テキスト</b>：そのままコピーして、LINE やメールに貼り付け。<br>
+            ・<b>Gフォーム変換</b>：Google フォームを自動で作るスクリプトが出ます（下の「Googleフォームで集める」を参照）。<br>
+            右上の <b>📋 コピー</b> / <b>💾 保存</b> で、表示中の内容をコピー・ダウンロードできます。
+          </p>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-num">3</div>
+        <div>
+          <h3>集めた回答を販促素材に変える</h3>
+          <p>お客様から返ってきた回答を、左下の <b>「3. 集めた回答 → 販促素材に変換」</b> に貼り付けて生成すると、AI が「読まれる見せ方」に整形します。</p>
+          <p class="sub">
+            作れる素材：<b>反響トップ5</b>（成功事例をランキング化）／<b>購入直後の声トップ5</b>（申込直後の生の一言）／<b>紹介キャッチフレーズ集</b>（誰に・どんな一言で）／<b>改善点ランキング</b>（不満を公開して信頼をつくる）。<br>
+            ※この機能は AI モード（API キー）が必要です。
+          </p>
+        </div>
+      </div>
+
+      <div class="guide-sec-title">Googleフォームで集める</div>
+      <div class="guide-callout">
+        <b>Gフォーム変換タブ</b>のスクリプトを使うと、設問を1問ずつコピペせずにフォームが作れます。<br><br>
+        ① 右上「Gフォーム変換」タブを開き、<b>📋 コピー</b><br>
+        ② <code>script.google.com</code> を開き「新しいプロジェクト」→ 最初のコードを消して貼り付け<br>
+        ③ 「実行」ボタンを押す（初回は Google の確認 →「許可」）<br>
+        ④ 画面下のログに出る <b>回答用URL</b> をお客様に送るだけ<br><br>
+        回答は自動でスプレッドシートに溜まります（＝これが回答データベース）。集まったら、そのシートを全選択コピー（Ctrl+A / Cmd+A）して、ステップ3の貼り付け欄に入れると、回答件数が自動で表示されます。
+      </div>
+
+      <div class="guide-sec-title">2つのモード</div>
+      <div class="guide-step">
+        <div class="guide-num" style="background:var(--tag-voice)">A</div>
+        <div>
+          <h3>レビュー収集（利用後アンケート）</h3>
+          <p>使ってくれたお客様から、LP やお客様の声に使えるフィードバックを集めます。通常はこちら。</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <div class="guide-num" style="background:#5a7d2f">B</div>
+        <div>
+          <h3>不満募集キャンペーン</h3>
+          <p>「今のやり方・競合サービスへの不満」を募集して、<b>まだお客様でない人のリスト</b>を集めます。「アンケートの目的」で切り替え。集客の入口として使えます。</p>
+        </div>
+      </div>
+
+      <div class="guide-sec-title">AIモード（任意）について</div>
+      <p style="font-size:13px;line-height:1.75">
+        Claude の API キーを入れると「設問文の最適化」と「素材変換」が使えます。キーは <b>このブラウザ内にのみ保存</b>され、送信先は Anthropic の API だけです。共用のパソコンでは、使い終わったら <b>「キー削除」</b> ボタンを押してください。API キーは <code>console.anthropic.com</code> で取得できます（利用分はキーの持ち主の負担になります）。
+      </p>
+
+      <div class="guide-callout" style="background:#fbfaf7;border:1px solid var(--line)">
+        <b style="color:var(--ink)">困ったとき</b><br>
+        ・AIボタンでエラーが出る → API キーが正しいか確認。広告ブロッカーが通信を止めている場合はオフに。<br>
+        ・入力した内容は保存されません。ページを閉じる前に「コピー」か「保存」をしてください。
+      </div>
     </div>
   </div>
 </div>
@@ -659,6 +806,18 @@ function downloadTxt() {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+function openGuide() {
+  document.getElementById("guideModal").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+function closeGuide() {
+  document.getElementById("guideModal").classList.add("hidden");
+  document.body.style.overflow = "";
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeGuide();
+});
 
 function clearKey() {
   localStorage.removeItem("survey_maker_api_key");
