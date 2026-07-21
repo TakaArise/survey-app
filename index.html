@@ -211,6 +211,19 @@
       <input type="text" id="productName" placeholder="例：音声配信をnote記事に変換するツール">
       <label class="field">どんな商品・サービスですか？ <span class="hint">（簡単でOK）</span></label>
       <textarea id="productDesc" placeholder="例：stand.fmの音声や台本を入れると、本人らしい文体のnote記事が自動生成されるツール"></textarea>
+      <div id="jobsSection">
+        <label class="field">このツールの主な機能（ジョブ） <span class="hint">（複数の作業を含む場合に追加。空欄なら1つの作業として扱います）</span></label>
+        <div id="jobsList"></div>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <button type="button" class="btn btn-sub" onclick="addJob()">＋ 機能を追加</button>
+          <button type="button" class="btn btn-ai" id="jobAiBtn" onclick="aiSuggestJobs()">🤖 AIに機能を提案してもらう</button>
+        </div>
+        <div class="status" id="jobStatus"></div>
+        <label class="field" style="font-weight:400;margin-top:8px">
+          <input type="checkbox" id="bundleCommon" style="accent-color:var(--accent)">
+          機能をまたいで共通の設問にまとめる（設問数を減らす）
+        </label>
+      </div>
       <label class="field">商品タイプ</label>
       <select id="productType">
         <option value="tool">ツール・アプリ</option>
@@ -424,6 +437,8 @@ function buildQuestionBank(p) {
   const thanks = isMonitor ? "モニターとしてご協力いただき" : "ご利用いただき";
   return {
     _intro: `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\n今後のサービス改善と、同じ悩みを持つ方へ分かりやすく届けるために、率直なご感想をお聞かせください。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
+    // 複数機能がある場合の導入文（機能ごとに分けて聞く旨を明記）
+    _introMulti: (jobs) => `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\nこのアンケートでは、「${jobs.join("」「")}」のそれぞれについて、時間や気持ちの変化を分けてお聞きします。少し設問は多くなりますが、機能ごとに具体的な感想をいただけると、同じ悩みを持つ方へより正確にお届けできます。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
 
     basic: [
       { text: "お名前、または掲載時に使用してよいお名前を教えてください。", format: "記述式", required: true,
@@ -433,17 +448,29 @@ function buildQuestionBank(p) {
     ],
 
     before: [
-      { text: `「${p.name}」を使う前、どんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`, format: "長文記述", required: true,
+      { scope: "perJob",
+        text: `「${p.name}」を使う前、どんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
+        jobText: (job) => `「${job}」について、使う前はどんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
+        format: "長文記述", required: true,
         example: "時間がかかっていた、やり方が分からなかった、続かなかった、など", tags: ["voice", "lp"] },
-      { text: "その悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。", format: "長文記述", required: false,
+      { scope: "perJob",
+        text: "その悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。",
+        jobText: (job) => `「${job}」の悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。`,
+        format: "長文記述", required: false,
         example: "本で調べた、他のツールを使った、何もできていなかった、など", tags: ["voice"] },
     ],
 
     time: [
-      { text: `「${p.name}」を使う前、同じ作業に1回あたりどれくらい時間がかかっていましたか？`, format: "数値入力（分）", required: true,
+      { scope: "perJob",
+        text: `「${p.name}」を使う前、同じ作業に1回あたりどれくらい時間がかかっていましたか？`,
+        jobText: (job) => `「${job}」について、使う前は1回あたりどれくらい時間がかかっていましたか？`,
+        format: "数値入力（分）", required: true,
         example: "60分、120分など",
         note: "※これまでやったことがない作業の場合は、数字ではなく「未経験（やれていなかった）」とご記入ください。", tags: ["lp"] },
-      { text: `「${p.name}」を使った場合、同じ作業に1回あたりどれくらい時間がかかりましたか？`, format: "数値入力（分）", required: true,
+      { scope: "perJob",
+        text: `「${p.name}」を使った場合、同じ作業に1回あたりどれくらい時間がかかりましたか？`,
+        jobText: (job) => `「${job}」について、使った後は1回あたりどれくらい時間がかかりましたか？`,
+        format: "数値入力（分）", required: true,
         example: "10分、30分など",
         note: "※初期設定や使い方を覚える時間は含めず、「慣れたあとの通常利用1回分」の時間でお答えください。", tags: ["lp"] },
       { text: "初期設定（最初の準備）には、別途どれくらい時間がかかりましたか？", format: "数値入力（分）", required: false,
@@ -451,13 +478,22 @@ function buildQuestionBank(p) {
         note: "※上の設問と分けてお答えください。初回だけかかる時間の目安として使わせていただきます。", tags: ["improve"] },
       { text: "利用前と比べて、月あたりどれくらいの時間を削減できそうだと感じますか？", format: "選択式", required: true,
         options: ["1時間未満", "1〜3時間", "3〜5時間", "5〜10時間", "10時間以上", "まだ判断できない"], tags: ["lp"] },
-      { text: "この作業を、今後は月に何回くらいできそうだと感じますか？（利用前の回数もあわせて教えてください）", format: "記述式", required: false,
+      { scope: "perJob",
+        text: "この作業を、今後は月に何回くらいできそうだと感じますか？（利用前の回数もあわせて教えてください）",
+        jobText: (job) => `「${job}」を、今後は月に何回くらいできそうだと感じますか？（利用前の回数もあわせて教えてください）`,
+        format: "記述式", required: false,
         example: "利用前：月0回 → 今後：月12回（週3回ペース）", tags: ["lp"] },
     ],
 
     emotion: [
-      { text: "この作業に対する心理的な負担は、使う前は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）", format: "10段階評価", required: true, tags: ["lp", "voice"] },
-      { text: "使った後、心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）", format: "10段階評価", required: true, tags: ["lp", "voice"] },
+      { scope: "perJob",
+        text: "この作業に対する心理的な負担は、使う前は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）",
+        jobText: (job) => `「${job}」に対する心理的な負担は、使う前は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）`,
+        format: "10段階評価", required: true, tags: ["lp", "voice"] },
+      { scope: "perJob",
+        text: "使った後、心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）",
+        jobText: (job) => `「${job}」について、使った後の心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）`,
+        format: "10段階評価", required: true, tags: ["lp", "voice"] },
       { text: "実際に使ってみて、気持ちや行動にどんな変化がありましたか？", format: "長文記述", required: true,
         example: "気が重かった作業が楽になった、後回しにしなくなった、自信がついた、など", tags: ["voice"] },
     ],
@@ -472,17 +508,34 @@ function buildQuestionBank(p) {
         example: "時短、クオリティ、続けられたこと、など", tags: ["voice"] },
       { text: `「${p.name}」を使うことで、今後どんなことができそうだと感じましたか？`, format: "長文記述", required: false,
         example: "発信を増やせそう、新しい仕事につながりそう、など", tags: ["voice"] },
-      { text: `「${p.name}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`, format: "記述式", required: true,
+      { scope: "perJob",
+        text: `「${p.name}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`,
+        jobText: (job) => `「${job}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`,
+        format: "記述式", required: true,
         example: "「◯◯できなかった私が、◯◯できるようになった」のような形で自由にどうぞ", tags: ["voice", "lp", "rank"] },
     ],
 
     quality: [
-      { text: "成果物（出来上がったもの）の完成度は、100点満点でどれくらいだと感じましたか？", format: "数値入力（点）", required: true,
+      { scope: "perJob",
+        text: "成果物（出来上がったもの）の完成度は、100点満点でどれくらいだと感じましたか？",
+        jobText: (job) => `「${job}」でできた成果物の完成度は、100点満点でどれくらいだと感じましたか？`,
+        format: "数値入力（点）", required: true,
         note: "※点数の理由や「あと何があれば満点か」も添えていただけると嬉しいです。", tags: ["lp", "improve"] },
-      { text: "成果物をそのまま使える度合いはどれくらいでしたか？", format: "選択式", required: true,
+      { scope: "perJob",
+        text: "成果物をそのまま使える度合いはどれくらいでしたか？",
+        jobText: (job) => `「${job}」でできた成果物を、そのまま使える度合いはどれくらいでしたか？`,
+        format: "選択式", required: true,
         options: ["ほぼそのまま使える", "少し修正すれば使える", "半分くらい修正が必要", "大きく修正が必要", "現時点では使うのが難しい"], tags: ["lp", "improve"] },
-      { text: "修正が必要だった場合、修正にはどれくらい時間がかかりましたか？", format: "数値入力（分）", required: false,
+      { scope: "perJob",
+        text: "修正が必要だった場合、修正にはどれくらい時間がかかりましたか？",
+        jobText: (job) => `「${job}」で修正が必要だった場合、修正にはどれくらい時間がかかりましたか？`,
+        format: "数値入力（分）", required: false,
         example: "15分など。修正不要だった場合は「0」とご記入ください", tags: ["lp"] },
+      { scope: "perJob", jobOnly: true,
+        text: "この機能の満足度を教えてください。",
+        jobText: (job) => `「${job}」の満足度を教えてください。`,
+        format: "5段階評価", required: true,
+        options: ["5：とても満足", "4：満足", "3：普通", "2：やや不満", "1：不満"], tags: ["lp", "voice"] },
     ],
 
     price: [
@@ -602,12 +655,51 @@ document.getElementById("answersInput").addEventListener("input", (e) => {
 });
 
 /* ============================================================
+   機能（ジョブ）欄の操作
+============================================================ */
+function getJobs() {
+  return [...document.querySelectorAll("#jobsList input")].map(i => i.value.trim()).filter(Boolean);
+}
+function addJob(val = "") {
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:6px;margin-top:6px";
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.placeholder = "例：音声を記事にする";
+  inp.value = val; // プロパティ代入なのでXSSにならない
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "btn btn-sub";
+  del.textContent = "✕";
+  del.style.cssText = "padding:8px 12px;flex-shrink:0";
+  del.onclick = () => row.remove();
+  row.appendChild(inp);
+  row.appendChild(del);
+  document.getElementById("jobsList").appendChild(row);
+}
+
+/* 設問オブジェクトを具体化：機能名があればjobText、なければ従来のtextを使う。
+   関数(jobText)を含まないプレーンなオブジェクトを返す（JSON化・描画で安全に扱える） */
+function materializeQ(q, job) {
+  const text = (job && q.scope === "perJob" && q.jobText) ? q.jobText(job) : q.text;
+  const o = { text, format: q.format, required: q.required, tags: q.tags };
+  if (q.example) o.example = q.example;
+  if (q.note) o.note = q.note;
+  if (q.options) o.options = q.options;
+  if (job) o.job = job;
+  return o;
+}
+
+/* ============================================================
    生成
 ============================================================ */
+let lastGenSplit = false; // 直近の生成で機能別に展開したか（メーター表示用）
+
 function onPurposeChange() {
   const isFumon = document.getElementById("purpose").value === "fumon";
   document.getElementById("fumonFields").classList.toggle("hidden", !isFumon);
   document.getElementById("reviewOnly").classList.toggle("hidden", isFumon);
+  document.getElementById("jobsSection").classList.toggle("hidden", isFumon);
   document.getElementById("fumonNote").classList.toggle("hidden", !isFumon);
   document.getElementById("nameHint").textContent = isFumon ? "（任意・素材変換で使います）" : "（必須）";
   document.getElementById("card2Title").innerHTML = isFumon
@@ -623,6 +715,7 @@ function generate() {
     const fb = buildFumonBank(target, document.getElementById("fumonPrize").value.trim());
     introText = fb._intro;
     questions = [...fb.questions];
+    lastGenSplit = false;
     render();
     switchView("list");
     return;
@@ -640,12 +733,31 @@ function generate() {
   const selected = [...document.querySelectorAll("#goals input:checked")].map(el => el.value);
   if (selected.length === 0) { showToast("ほしいレビューの種類を1つ以上選んでください"); return; }
 
-  introText = bank._intro;
-  questions = [...bank.basic];
+  const jobs = getJobs();
+  const bundle = document.getElementById("bundleCommon").checked;
+  const useJobs = jobs.length >= 1 && !bundle;
+  lastGenSplit = useJobs && jobs.length >= 2;
+
   // 回答者の心理的な流れに沿った順序：悩み → 数値 → 感情 → 声 → 品質 → 対象者 → 改善 → 満足度 → 価格 → サポート
   const order = ["before", "time", "emotion", "voice", "quality", "target", "improve", "nps", "price", "support"];
-  order.forEach(k => { if (selected.includes(k)) questions.push(...bank[k]); });
-  if (document.getElementById("withPermission").checked) questions.push(...bank.permission);
+  const selectedQs = order.filter(k => selected.includes(k)).flatMap(k => bank[k]);
+
+  introText = useJobs && jobs.length >= 2 ? bank._introMulti(jobs) : bank._intro;
+  questions = bank.basic.map(q => materializeQ(q, null));
+
+  if (useJobs) {
+    // 機能ごとに、その機能のperJob設問をまとめて展開 → 最後に商品全体の設問
+    const perJobQs = selectedQs.filter(q => q.scope === "perJob");
+    jobs.forEach(job => perJobQs.forEach(q => questions.push(materializeQ(q, job))));
+    selectedQs.filter(q => q.scope !== "perJob").forEach(q => questions.push(materializeQ(q, null)));
+  } else {
+    // 単一作業モード（従来互換）：orderの並びのまま1回ずつ。jobOnly設問は出さない
+    selectedQs.filter(q => !q.jobOnly).forEach(q => questions.push(materializeQ(q, null)));
+  }
+
+  if (document.getElementById("withPermission").checked) {
+    bank.permission.forEach(q => questions.push(materializeQ(q, null)));
+  }
 
   render();
   switchView("list");
@@ -681,7 +793,14 @@ function render() {
   document.getElementById("mCount").textContent = questions.length;
   document.getElementById("mTime").textContent = total;
   const warnEl = document.getElementById("mWarn");
-  if (total > 20) {
+  if (lastGenSplit) {
+    // 機能別展開は設問数が増える。これを「意図した選択」として提示する
+    let msg = '<span style="color:var(--accent);font-weight:700">機能ごとに聞いているため設問は多めです（引用しやすい口コミの質を優先）</span>';
+    if (total > 20) {
+      msg += '<br><span class="warn">回答負担を軽くしたい場合は、左の「機能をまたいで共通の設問にまとめる」にチェックして再生成してください</span>';
+    }
+    warnEl.innerHTML = msg;
+  } else if (total > 20) {
     warnEl.innerHTML = '<span class="warn">⚠ 回答時間が20分超。途中離脱の恐れがあるため、任意の設問を減らすのがおすすめです</span>';
   } else if (requiredLong > 6) {
     warnEl.innerHTML = '<span class="warn">⚠ 必須の長文設問が' + requiredLong + '問。いくつか任意に緩めると回答率が上がります</span>';
@@ -838,6 +957,73 @@ function showToast(msg) {
 }
 
 /* ============================================================
+   AIモード：商品説明から機能（ジョブ）の分割案を提案する
+   モデル選定：軽い抽出タスク → claude-sonnet-4-6
+   max_tokens：機能名の配列のみ → 1500（設問書き換え8000とは別設定）
+============================================================ */
+async function aiSuggestJobs() {
+  const name = document.getElementById("productName").value.trim();
+  const desc = document.getElementById("productDesc").value.trim();
+  const statusEl = document.getElementById("jobStatus");
+  if (!name && !desc) { statusEl.className = "status err"; statusEl.textContent = "先に商品名か商品説明を入力してください"; return; }
+  const key = document.getElementById("apiKey").value.trim();
+  if (!key) { statusEl.className = "status err"; statusEl.textContent = "下のAIモード欄にAPIキーを入力してください"; return; }
+  localStorage.setItem("survey_maker_api_key", key);
+
+  const btn = document.getElementById("jobAiBtn");
+  btn.disabled = true;
+  statusEl.className = "status";
+  statusEl.textContent = "AIが機能を分析中…";
+
+  const prompt = `次の商品が持つ「独立した作業（ジョブ）」に分解してください。ユーザーがその商品を使って行う具体的な作業を、短い動詞句で挙げます。
+
+商品名：${name || "（未入力）"}
+商品説明：${desc || "（未入力）"}
+
+ルール：
+- 各ジョブは「音声を記事にする」「記事からスレッズ投稿を作る」のような短い動作の名前にする
+- 独立して「かかる時間」や「できる成果物」を測れる単位で分ける
+- 1〜5個。作業が1つしかなければ1個でよい
+- 出力はJSON配列のみ（例: ["音声を記事にする","記事からスレッズ投稿を作る"]）。説明・前置き・コードブロック記号は不要`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1500,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `APIエラー（${res.status}）`);
+    }
+    const data = await res.json();
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    const jsonStr = text.replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+    const arr = JSON.parse(jsonStr);
+    if (!Array.isArray(arr) || arr.length === 0) throw new Error("AIの出力形式が不正でした");
+    const jobs = arr.filter(x => typeof x === "string" && x.trim()).map(x => x.trim());
+    document.getElementById("jobsList").innerHTML = ""; // クリア（内容注入ではない）
+    jobs.forEach(j => addJob(j));
+    statusEl.className = "status ok";
+    statusEl.textContent = `✓ ${jobs.length}個の機能を提案しました。内容を確認・編集してから生成してください`;
+  } catch (e) {
+    statusEl.className = "status err";
+    statusEl.textContent = "エラー：" + friendlyAiError(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ============================================================
    AIモード：Claude APIで設問文・例文を商品に合わせて最適化
    モデル選定：分析・生成タスク → claude-sonnet-4-6
    max_tokens：設問リスト書き換え（実出力量ベースで個別設定）→ 8000
@@ -955,10 +1141,17 @@ async function generateMaterials() {
   const productInfo = `商品名：${document.getElementById("productName").value.trim() || "（未入力）"}\n商品説明：${document.getElementById("productDesc").value.trim() || "（説明なし）"}`;
   const specs = selected.map(k => MATERIAL_SPECS[k]).join("\n\n");
 
+  // 機能（ジョブ）が宣言されていれば、素材を機能ごとに分けて出す指示を足す
+  const jobs = getJobs();
+  const jobInstruction = jobs.length >= 1
+    ? `\n\n# この商品の機能（ジョブ）\nこの商品は次の作業を含みます：${jobs.map(j => "「" + j + "」").join("、")}\n反響トップ5・購入直後の声トップ5・ビフォーアフター型コピーは、回答に機能ごとの記述がある場合、機能ごとに見出しを分けて出力してください（例：【${jobs[0]}】の反響トップ5）。どの機能の話か判別できない回答は、無理に機能へ振り分けなくてよい。`
+    : "";
+  const maxTok = jobs.length >= 2 ? 8000 : 6000;
+
   const prompt = `あなたは「お客様の声」を売れる販促素材に編集する専門家です。以下のアンケート回答をもとに、指定された素材を作成してください。
 
 # 商品情報
-${productInfo}
+${productInfo}${jobInstruction}
 
 # アンケート回答（原文）
 ${answers}
@@ -984,7 +1177,7 @@ ${specs}
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 6000,
+        max_tokens: maxTok,
         messages: [{ role: "user", content: prompt }],
       }),
     });
