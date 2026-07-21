@@ -328,7 +328,7 @@
         <div>
           <h3>アンケートを作る</h3>
           <p>左側で商品・サービス名を入れ、「どんなレビューがほしいか」をチェックして <b>「アンケートを生成する」</b> を押します。設問が右側に出ます。</p>
-          <p class="sub">・各設問には「この回答が何に使えるか」のタグ（LP実績数値・お客様の声・価格設定など）が付きます。<br>・不要な設問は設問カード右上の <b>✕</b> で外せます。<br>・上部の「回答負担メーター」で、答えるのにかかる時間の目安が分かります（20分を超えると離脱しやすいので警告が出ます）。</p>
+          <p class="sub">・各設問には「この回答が何に使えるか」のタグ（LP実績数値・お客様の声・価格設定など）が付きます。<br>・不要な設問は設問カード右上の <b>✕</b> で外せます。<br>・上部の「回答負担メーター」で、設問数と答えるのにかかる時間の目安が分かります。</p>
         </div>
       </div>
 
@@ -786,27 +786,15 @@ function render() {
       <div class="tags">${(q.tags || []).map(t => TAGS[t] ? `<span class="tag" style="background:${TAGS[t].color}">${TAGS[t].label}</span>` : "").join("")}</div>
     </div>`).join("");
 
-  // 回答負担メーター
+  // 回答負担メーター：設問数と推定時間は情報として表示する。
+  // 「必要な情報を取ること」が最優先のため、負担を理由に設問削減を促す警告は出さない。
   const total = Math.ceil(questions.reduce((s, q) => s + estimateMinutes(q), 0));
-  const requiredLong = questions.filter(q => q.format === "長文記述" && q.required).length;
   document.getElementById("meter").style.display = "flex";
   document.getElementById("mCount").textContent = questions.length;
   document.getElementById("mTime").textContent = total;
-  const warnEl = document.getElementById("mWarn");
-  if (lastGenSplit) {
-    // 機能別展開は設問数が増える。これを「意図した選択」として提示する
-    let msg = '<span style="color:var(--accent);font-weight:700">機能ごとに聞いているため設問は多めです（引用しやすい口コミの質を優先）</span>';
-    if (total > 20) {
-      msg += '<br><span class="warn">回答負担を軽くしたい場合は、左の「機能をまたいで共通の設問にまとめる」にチェックして再生成してください</span>';
-    }
-    warnEl.innerHTML = msg;
-  } else if (total > 20) {
-    warnEl.innerHTML = '<span class="warn">⚠ 回答時間が20分超。途中離脱の恐れがあるため、任意の設問を減らすのがおすすめです</span>';
-  } else if (requiredLong > 6) {
-    warnEl.innerHTML = '<span class="warn">⚠ 必須の長文設問が' + requiredLong + '問。いくつか任意に緩めると回答率が上がります</span>';
-  } else {
-    warnEl.innerHTML = '<span style="color:var(--ok)">✓ 回答負担は適正範囲です</span>';
-  }
+  document.getElementById("mWarn").innerHTML = lastGenSplit
+    ? '<span style="color:var(--accent);font-weight:700">機能ごとに分けて聞いているため設問は多めです（引用しやすい口コミの質を優先）</span>'
+    : "";
 
   document.getElementById("plainOut").textContent = toPlainText();
 }
