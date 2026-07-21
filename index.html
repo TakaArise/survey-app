@@ -224,8 +224,8 @@
           機能をまたいで共通の設問にまとめる（設問数を減らす）
         </label>
       </div>
-      <label class="field">商品タイプ</label>
-      <select id="productType">
+      <label class="field">商品タイプ <span class="hint">（設問がこのタイプに合わせて変わります）</span></label>
+      <select id="productType" onchange="onTypeChange()">
         <option value="tool">ツール・アプリ</option>
         <option value="lesson">講座・レッスン</option>
         <option value="consulting">コンサル・コーチング</option>
@@ -429,46 +429,122 @@ const GOALS = [
 ];
 
 /* ============================================================
-   設問バンク
-   note: 回答のブレ・矛盾を防ぐための注意書き（あいまい設問ガード）
+   商品タイプごとの言い回し・ラベル
 ============================================================ */
-function buildQuestionBank(p) {
-  const isMonitor = p.offer === "monitor";
-  const thanks = isMonitor ? "モニターとしてご協力いただき" : "ご利用いただき";
+const TYPE_VERB = { tool: "使う", lesson: "受ける", consulting: "受ける", content: "読む", service: "使う" };
+
+// タイプによって意味が変わるゴール（time＝成果/変化、quality＝質の評価）のラベル差し替え
+const GOAL_LABELS = {
+  time: {
+    tool:       { label: "時間・数値の変化",       desc: "「◯分→◯分に短縮」などLPに載せられる実績数値" },
+    lesson:     { label: "できるようになったこと",   desc: "受講前後のスキル変化。習得の実感を数値と言葉で" },
+    consulting: { label: "課題の解決・成果",         desc: "相談前後の変化・意思決定・具体的な成果" },
+    content:    { label: "実践したこと・変化",       desc: "読んで何を実践し、どう変わったか" },
+    service:    { label: "導入後の変化・成果",       desc: "利用前後の変化。数字で表せる成果" },
+  },
+  quality: {
+    tool:       { label: "成果物・品質の評価",       desc: "完成度・そのまま使える度など品質の裏付け" },
+    lesson:     { label: "学びの実用性",             desc: "分かりやすさ・すぐ実践に使えたか" },
+    consulting: { label: "伴走・提案の質",           desc: "提案の的確さ・行動に移せたか" },
+    content:    { label: "内容の質・実践のしやすさ",   desc: "分かりやすさ・具体性" },
+    service:    { label: "提供物・対応の質",         desc: "提供内容・対応の質の評価" },
+  },
+};
+
+/* ============================================================
+   タイプ別の「成果・変化（time）」「質の評価（quality）」設問セット
+   ツールのみ機能別（perJob）に複製。それ以外は商品全体で1回。
+============================================================ */
+function outcomeGroups(p) {
+  const n = p.name;
+  if (p.type === "lesson") {
+    return {
+      time: [
+        { text: `「${n}」を受ける前、このテーマについてどれくらいできていましたか？（10点満点。10点＝十分にできる／1点＝まったくできない）`, format: "10段階評価", required: true, tags: ["lp", "voice"] },
+        { text: "受けた後、今はどれくらいできるようになりましたか？（同じ基準でお答えください）", format: "10段階評価", required: true, tags: ["lp", "voice"] },
+        { text: "具体的に「できるようになったこと」を教えてください。", format: "長文記述", required: true,
+          example: "◯◯を自分で作れるようになった、△△の判断ができるようになった、など", tags: ["voice", "lp", "rank"] },
+        { text: "受講中・受講後に、実際に作ったもの・出した成果があれば教えてください。", format: "長文記述", required: false,
+          example: "作った作品・投稿、数字の変化など", tags: ["voice", "lp"] },
+        { text: "同じことを独学で身につけようとしたら、どれくらいの期間がかかりそうだと感じますか？", format: "記述式", required: false,
+          example: "半年、1年、たどり着けなかったかも、など", tags: ["lp"] },
+      ],
+      quality: [
+        { text: "学んだことは、すぐに実践に使えましたか？", format: "選択式", required: true,
+          options: ["すぐ実践に使えた", "少し試せば使えた", "使うにはもう少し練習が必要", "まだ実践できていない"], tags: ["lp", "improve"] },
+        { text: "講座の内容の分かりやすさは、10点満点でどれくらいでしたか？", format: "10段階評価", required: true, tags: ["lp", "improve"] },
+        { text: "特に「受けてよかった」と感じた回・パート・ワークがあれば教えてください。", format: "長文記述", required: false,
+          example: "具体的な回やワークの名前と、なぜよかったか", tags: ["voice", "rank"] },
+      ],
+    };
+  }
+  if (p.type === "consulting") {
+    return {
+      time: [
+        { text: `「${n}」を受ける前、抱えていた課題の深刻さは10点満点でどれくらいでしたか？（10点＝一人ではどうにもならない／1点＝軽い悩み）`, format: "10段階評価", required: true, tags: ["lp", "voice"] },
+        { text: "受けた後、その課題はどれくらい解決・前進しましたか？（10点満点。10点＝完全に解決／1点＝変わらない）", format: "10段階評価", required: true, tags: ["lp", "voice"] },
+        { text: "具体的に、どんな変化・成果がありましたか？数字や事実があれば具体的に教えてください。", format: "長文記述", required: true,
+          example: "売上・集客の数字、意思決定できたこと、行動が変わったこと、など", tags: ["voice", "lp", "rank"] },
+        { text: "一番の「決め手」になった気づき・アドバイスは何でしたか？", format: "長文記述", required: false,
+          example: "言われてハッとした一言、視点が変わった瞬間など", tags: ["voice", "rank"] },
+        { text: "同じ課題を自分ひとりで解決しようとしたら、どれくらいの期間がかかりそうでしたか？", format: "記述式", required: false,
+          example: "半年、1年、解決できなかったかも、など", tags: ["lp"] },
+      ],
+      quality: [
+        { text: "提案やアドバイスは、あなたの状況にどれくらい合っていましたか？（10点満点）", format: "10段階評価", required: true, tags: ["lp", "improve"] },
+        { text: "受けたアドバイスを、実際にどれくらい行動に移せましたか？", format: "選択式", required: true,
+          options: ["ほぼ実行できた", "半分くらい実行できた", "これから実行する", "実行するのが難しかった"], tags: ["lp", "improve"] },
+        { text: "伴走・サポートで特に助かった点を教えてください。", format: "長文記述", required: false,
+          example: "レスの速さ、相談のしやすさ、背中を押してくれたこと、など", tags: ["voice", "trust"] },
+      ],
+    };
+  }
+  if (p.type === "content") {
+    return {
+      time: [
+        { text: `「${n}」を読む前、このテーマの理解度は10点満点でどれくらいでしたか？`, format: "10段階評価", required: true, tags: ["lp", "voice"] },
+        { text: "読んだ後、理解度は10点満点でどれくらいになりましたか？（同じ基準でお答えください）", format: "10段階評価", required: true, tags: ["lp", "voice"] },
+        { text: "読んで一番の「気づき・学び」は何でしたか？", format: "長文記述", required: true,
+          example: "知らなかったこと、考え方が変わったこと、など", tags: ["voice", "lp", "rank"] },
+        { text: "内容を読んで、実際に試したこと・行動に移したことはありますか？その結果も教えてください。", format: "長文記述", required: true,
+          example: "やってみたことと、その後の変化", tags: ["voice", "lp"] },
+      ],
+      quality: [
+        { text: "内容の分かりやすさは、10点満点でどれくらいでしたか？", format: "10段階評価", required: true, tags: ["lp", "improve"] },
+        { text: "書いてある内容は、すぐ実践できる具体性がありましたか？", format: "選択式", required: true,
+          options: ["すぐ実践できる具体性があった", "少し工夫すれば実践できた", "やや抽象的で実践しづらかった"], tags: ["lp", "improve"] },
+        { text: "特に「刺さった」「役に立った」部分を教えてください。", format: "長文記述", required: false,
+          example: "具体的な箇所と、なぜ響いたか", tags: ["voice", "rank"] },
+      ],
+    };
+  }
+  if (p.type === "service") {
+    return {
+      time: [
+        { text: "使った後、どんな変化・成果がありましたか？できるだけ具体的に教えてください。", format: "長文記述", required: true,
+          example: "できるようになったこと、楽になったこと、数字の変化など", tags: ["voice", "lp", "rank"] },
+        { text: "変化を数字で表せる部分があれば教えてください。（時間・金額・回数など）", format: "記述式", required: false,
+          example: "月◯時間削減、売上◯%増、など", tags: ["lp"] },
+        { text: "使う前と後を比べて、状況は10点満点でどれくらい良くなりましたか？", format: "10段階評価", required: true, tags: ["lp", "voice"] },
+      ],
+      quality: [
+        { text: "提供された内容・対応の質は、10点満点でどれくらいでしたか？", format: "10段階評価", required: true, tags: ["lp", "improve"] },
+        { text: "特に良かった点・満足した点を教えてください。", format: "長文記述", required: false,
+          example: "具体的にどこがよかったか", tags: ["voice"] },
+      ],
+    };
+  }
+  // tool（デフォルト）：作業時間・成果物。機能別（perJob）に複製する
   return {
-    _intro: `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\n今後のサービス改善と、同じ悩みを持つ方へ分かりやすく届けるために、率直なご感想をお聞かせください。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
-    // 複数機能がある場合の導入文（機能ごとに分けて聞く旨を明記）
-    _introMulti: (jobs) => `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\nこのアンケートでは、「${jobs.join("」「")}」のそれぞれについて、時間や気持ちの変化を分けてお聞きします。少し設問は多くなりますが、機能ごとに具体的な感想をいただけると、同じ悩みを持つ方へより正確にお届けできます。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
-
-    basic: [
-      { text: "お名前、または掲載時に使用してよいお名前を教えてください。", format: "記述式", required: true,
-        example: "本名、活動名、イニシャル、匿名希望など", tags: ["trust"] },
-      { text: "現在の活動内容を簡単に教えてください。", format: "記述式", required: true,
-        example: "配信者、講師、コーチ、カウンセラー、個人事業主など", tags: ["trust", "voice"] },
-    ],
-
-    before: [
-      { scope: "perJob",
-        text: `「${p.name}」を使う前、どんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
-        jobText: (job) => `「${job}」について、使う前はどんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
-        format: "長文記述", required: true,
-        example: "時間がかかっていた、やり方が分からなかった、続かなかった、など", tags: ["voice", "lp"] },
-      { scope: "perJob",
-        text: "その悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。",
-        jobText: (job) => `「${job}」の悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。`,
-        format: "長文記述", required: false,
-        example: "本で調べた、他のツールを使った、何もできていなかった、など", tags: ["voice"] },
-    ],
-
     time: [
       { scope: "perJob",
-        text: `「${p.name}」を使う前、同じ作業に1回あたりどれくらい時間がかかっていましたか？`,
+        text: `「${n}」を使う前、同じ作業に1回あたりどれくらい時間がかかっていましたか？`,
         jobText: (job) => `「${job}」について、使う前は1回あたりどれくらい時間がかかっていましたか？`,
         format: "数値入力（分）", required: true,
         example: "60分、120分など",
         note: "※これまでやったことがない作業の場合は、数字ではなく「未経験（やれていなかった）」とご記入ください。", tags: ["lp"] },
       { scope: "perJob",
-        text: `「${p.name}」を使った場合、同じ作業に1回あたりどれくらい時間がかかりましたか？`,
+        text: `「${n}」を使った場合、同じ作業に1回あたりどれくらい時間がかかりましたか？`,
         jobText: (job) => `「${job}」について、使った後は1回あたりどれくらい時間がかかりましたか？`,
         format: "数値入力（分）", required: true,
         example: "10分、30分など",
@@ -484,37 +560,6 @@ function buildQuestionBank(p) {
         format: "記述式", required: false,
         example: "利用前：月0回 → 今後：月12回（週3回ペース）", tags: ["lp"] },
     ],
-
-    emotion: [
-      { scope: "perJob",
-        text: "この作業に対する心理的な負担は、使う前は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）",
-        jobText: (job) => `「${job}」に対する心理的な負担は、使う前は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）`,
-        format: "10段階評価", required: true, tags: ["lp", "voice"] },
-      { scope: "perJob",
-        text: "使った後、心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）",
-        jobText: (job) => `「${job}」について、使った後の心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）`,
-        format: "10段階評価", required: true, tags: ["lp", "voice"] },
-      { text: "実際に使ってみて、気持ちや行動にどんな変化がありましたか？", format: "長文記述", required: true,
-        example: "気が重かった作業が楽になった、後回しにしなくなった、自信がついた、など", tags: ["voice"] },
-    ],
-
-    voice: [
-      { text: `「${p.name}」を使うと決めた瞬間（申し込んだ瞬間）、正直どんな気持ちでしたか？`, format: "記述式", required: true,
-        example: "半信半疑だった、手が震えた、「もっと早く知りたかった」と思った、など",
-        note: "※きれいな感想ではなく、そのときの「生の気持ち」をそのまま書いていただけると嬉しいです。", tags: ["voice", "rank"] },
-      { text: "特に「便利だった」「助かった」と感じた機能や場面があれば教えてください。", format: "長文記述", required: true,
-        example: "具体的な機能名や、使っていて感動した瞬間など", tags: ["voice", "lp", "rank"] },
-      { text: "「これは自分ひとりではできなかった」と感じた部分はありますか？", format: "長文記述", required: false,
-        example: "時短、クオリティ、続けられたこと、など", tags: ["voice"] },
-      { text: `「${p.name}」を使うことで、今後どんなことができそうだと感じましたか？`, format: "長文記述", required: false,
-        example: "発信を増やせそう、新しい仕事につながりそう、など", tags: ["voice"] },
-      { scope: "perJob",
-        text: `「${p.name}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`,
-        jobText: (job) => `「${job}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`,
-        format: "記述式", required: true,
-        example: "「◯◯できなかった私が、◯◯できるようになった」のような形で自由にどうぞ", tags: ["voice", "lp", "rank"] },
-    ],
-
     quality: [
       { scope: "perJob",
         text: "成果物（出来上がったもの）の完成度は、100点満点でどれくらいだと感じましたか？",
@@ -537,6 +582,76 @@ function buildQuestionBank(p) {
         format: "5段階評価", required: true,
         options: ["5：とても満足", "4：満足", "3：普通", "2：やや不満", "1：不満"], tags: ["lp", "voice"] },
     ],
+  };
+}
+
+/* ============================================================
+   設問バンク
+   note: 回答のブレ・矛盾を防ぐための注意書き（あいまい設問ガード）
+============================================================ */
+function buildQuestionBank(p) {
+  const isMonitor = p.offer === "monitor";
+  const thanks = isMonitor ? "モニターとしてご協力いただき" : "ご利用いただき";
+  const v = TYPE_VERB[p.type] || "使う"; // タイプ別の動詞（使う／受ける／読む）
+  const oc = outcomeGroups(p);           // タイプ別の成果・質の設問
+  return {
+    _intro: `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\n今後のサービス改善と、同じ悩みを持つ方へ分かりやすく届けるために、率直なご感想をお聞かせください。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
+    // 複数機能がある場合の導入文（機能ごとに分けて聞く旨を明記）
+    _introMulti: (jobs) => `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\nこのアンケートでは、「${jobs.join("」「")}」のそれぞれについて、時間や気持ちの変化を分けてお聞きします。少し設問は多くなりますが、機能ごとに具体的な感想をいただけると、同じ悩みを持つ方へより正確にお届けできます。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
+
+    basic: [
+      { text: "お名前、または掲載時に使用してよいお名前を教えてください。", format: "記述式", required: true,
+        example: "本名、活動名、イニシャル、匿名希望など", tags: ["trust"] },
+      { text: "現在の活動内容を簡単に教えてください。", format: "記述式", required: true,
+        example: "配信者、講師、コーチ、カウンセラー、個人事業主など", tags: ["trust", "voice"] },
+    ],
+
+    before: [
+      { scope: "perJob",
+        text: `「${p.name}」を${v}前、どんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
+        jobText: (job) => `「${job}」について、使う前はどんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
+        format: "長文記述", required: true,
+        example: "時間がかかっていた、やり方が分からなかった、続かなかった、など", tags: ["voice", "lp"] },
+      { scope: "perJob",
+        text: "その悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。",
+        jobText: (job) => `「${job}」の悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。`,
+        format: "長文記述", required: false,
+        example: "本で調べた、他のツールを使った、何もできていなかった、など", tags: ["voice"] },
+    ],
+
+    time: oc.time,
+
+    emotion: [
+      { scope: "perJob",
+        text: `「${p.name}」に取り組む前、心理的な負担は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）`,
+        jobText: (job) => `「${job}」に対する心理的な負担は、使う前は10点満点でどれくらいでしたか？（10点＝かなり負担が大きい／1点＝ほとんど負担がない）`,
+        format: "10段階評価", required: true, tags: ["lp", "voice"] },
+      { scope: "perJob",
+        text: `「${p.name}」に取り組んだ後、心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）`,
+        jobText: (job) => `「${job}」について、使った後の心理的な負担は10点満点でどれくらいになりましたか？（同じ基準でお答えください）`,
+        format: "10段階評価", required: true, tags: ["lp", "voice"] },
+      { text: "実際に取り組んでみて、気持ちや行動にどんな変化がありましたか？", format: "長文記述", required: true,
+        example: "気が重かったことが楽になった、後回しにしなくなった、自信がついた、など", tags: ["voice"] },
+    ],
+
+    voice: [
+      { text: `「${p.name}」を申し込んだ（購入した）瞬間、正直どんな気持ちでしたか？`, format: "記述式", required: true,
+        example: "半信半疑だった、手が震えた、「もっと早く知りたかった」と思った、など",
+        note: "※きれいな感想ではなく、そのときの「生の気持ち」をそのまま書いていただけると嬉しいです。", tags: ["voice", "rank"] },
+      { text: "特に「よかった」「助かった」と感じた場面や瞬間があれば教えてください。", format: "長文記述", required: true,
+        example: "印象に残った場面や、感動した瞬間など", tags: ["voice", "lp", "rank"] },
+      { text: "「これは自分ひとりではできなかった」と感じた部分はありますか？", format: "長文記述", required: false,
+        example: "時短、クオリティ、続けられたこと、など", tags: ["voice"] },
+      { text: `「${p.name}」を通じて、今後どんなことができそうだと感じましたか？`, format: "長文記述", required: false,
+        example: "発信を増やせそう、新しい仕事につながりそう、など", tags: ["voice"] },
+      { scope: "perJob",
+        text: `「${p.name}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`,
+        jobText: (job) => `「${job}」による変化を、「ビフォー → アフター」の一言で表すとしたら？`,
+        format: "記述式", required: true,
+        example: "「◯◯できなかった私が、◯◯できるようになった」のような形で自由にどうぞ", tags: ["voice", "lp", "rank"] },
+    ],
+
+    quality: oc.quality,
 
     price: [
       { text: "もし有料サービスとして利用するとしたら、どの価格帯なら検討しやすいですか？率直な感覚でお答えください。", format: "選択式", required: true,
@@ -639,13 +754,34 @@ function friendlyAiError(e) {
 /* ============================================================
    初期化
 ============================================================ */
-const goalsEl = document.getElementById("goals");
-GOALS.forEach(g => {
-  const label = document.createElement("label");
-  label.className = "goal";
-  label.innerHTML = `<input type="checkbox" value="${g.id}" ${g.checked ? "checked" : ""}><span><b>${g.label}</b><small>${g.desc}</small></span>`;
-  goalsEl.appendChild(label);
-});
+// ゴールの選択肢を描画（商品タイプに応じて time/quality のラベルを差し替える）
+function renderGoals(type) {
+  const el = document.getElementById("goals");
+  const existing = el.querySelectorAll("input");
+  const isFirst = existing.length === 0;
+  const prevChecked = new Set([...existing].filter(i => i.checked).map(i => i.value));
+  el.innerHTML = "";
+  GOALS.forEach(g => {
+    const ov = GOAL_LABELS[g.id] && GOAL_LABELS[g.id][type];
+    const labelText = ov ? ov.label : g.label;
+    const descText = ov ? ov.desc : g.desc;
+    const checked = isFirst ? g.checked : prevChecked.has(g.id);
+    // DOM APIで組み立て（innerHTML注入を避ける）
+    const wrap = document.createElement("label");
+    wrap.className = "goal";
+    const inp = document.createElement("input");
+    inp.type = "checkbox"; inp.value = g.id; inp.checked = checked;
+    const span = document.createElement("span");
+    const b = document.createElement("b"); b.textContent = labelText;
+    const small = document.createElement("small"); small.textContent = descText;
+    span.appendChild(b); span.appendChild(small);
+    wrap.appendChild(inp); wrap.appendChild(span);
+    el.appendChild(wrap);
+  });
+}
+renderGoals(document.getElementById("productType").value);
+updateJobsVisibility();
+
 document.getElementById("apiKey").value = localStorage.getItem("survey_maker_api_key") || "";
 
 // Googleフォーム回答シートの貼り付けを検出して件数を表示（タイムスタンプ列で数える）
@@ -695,12 +831,25 @@ function materializeQ(q, job) {
 ============================================================ */
 let lastGenSplit = false; // 直近の生成で機能別に展開したか（メーター表示用）
 
+// 機能（ジョブ）欄は「レビュー収集 かつ ツール・アプリ」のときだけ表示する
+function updateJobsVisibility() {
+  const isReview = document.getElementById("purpose").value === "review";
+  const isTool = document.getElementById("productType").value === "tool";
+  document.getElementById("jobsSection").classList.toggle("hidden", !(isReview && isTool));
+}
+
+// 商品タイプが変わったら、ゴールのラベルと機能欄の表示を更新
+function onTypeChange() {
+  renderGoals(document.getElementById("productType").value);
+  updateJobsVisibility();
+}
+
 function onPurposeChange() {
   const isFumon = document.getElementById("purpose").value === "fumon";
   document.getElementById("fumonFields").classList.toggle("hidden", !isFumon);
   document.getElementById("reviewOnly").classList.toggle("hidden", isFumon);
-  document.getElementById("jobsSection").classList.toggle("hidden", isFumon);
   document.getElementById("fumonNote").classList.toggle("hidden", !isFumon);
+  updateJobsVisibility();
   document.getElementById("nameHint").textContent = isFumon ? "（任意・素材変換で使います）" : "（必須）";
   document.getElementById("card2Title").innerHTML = isFumon
     ? "2. キャンペーンの設問セット"
