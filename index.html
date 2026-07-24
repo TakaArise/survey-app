@@ -207,10 +207,18 @@
         <label class="field">1位・参加者へのプレゼント <span class="hint">（任意）</span></label>
         <input type="text" id="fumonPrize" placeholder="例：note攻略ミニガイド、個別相談30分">
       </div>
+      <label class="field">商品タイプ <span class="hint">（設問がこのタイプに合わせて変わります）</span></label>
+      <select id="productType" onchange="onTypeChange()">
+        <option value="tool">ツール・アプリ</option>
+        <option value="lesson">講座・レッスン</option>
+        <option value="consulting">コンサル・コーチング</option>
+        <option value="content">コンテンツ（note・教材など）</option>
+        <option value="service">その他サービス</option>
+      </select>
       <label class="field">商品・サービス名 <span class="hint" id="nameHint">（必須）</span></label>
       <input type="text" id="productName" placeholder="例：音声配信をnote記事に変換するツール">
-      <label class="field">どんな商品・サービスですか？ <span class="hint">（簡単でOK）</span></label>
-      <textarea id="productDesc" placeholder="例：stand.fmの音声や台本を入れると、本人らしい文体のnote記事が自動生成されるツール"></textarea>
+      <label class="field">どんな商品・サービスですか？ <span class="hint">（詳しく書くほど、AIが商品に合わせて設問や素材を仕上げやすくなります）</span></label>
+      <textarea id="productDesc" style="min-height:140px" placeholder="次の4点を意識して、できるだけ具体的に書いてください。&#10;・誰のための商品か（対象）&#10;・その人のどんな悩み・課題を解決するか&#10;・どうやって解決するか（使い方・提供の流れ）&#10;・特徴やこだわり&#10;&#10;例：stand.fmで音声配信をしている人向けのツール。音声や台本を入れると本人らしい文体のnote記事が自動生成される。文章化が苦手で配信を記事にできていなかった人が、10分ほどで記事化できるようになる。スタイルプロファイル機能で文体を細かく再現できるのが特徴。"></textarea>
       <div id="jobsSection">
         <label class="field">このツールの主な機能（ジョブ） <span class="hint">（複数の作業を含む場合に追加。空欄なら1つの作業として扱います）</span></label>
         <div id="jobsList"></div>
@@ -224,14 +232,6 @@
           機能をまたいで共通の設問にまとめる（設問数を減らす）
         </label>
       </div>
-      <label class="field">商品タイプ <span class="hint">（設問がこのタイプに合わせて変わります）</span></label>
-      <select id="productType" onchange="onTypeChange()">
-        <option value="tool">ツール・アプリ</option>
-        <option value="lesson">講座・レッスン</option>
-        <option value="consulting">コンサル・コーチング</option>
-        <option value="content">コンテンツ（note・教材など）</option>
-        <option value="service">その他サービス</option>
-      </select>
       <label class="field">提供形態</label>
       <select id="offerType">
         <option value="monitor">モニター（無料/特別価格で試してもらった）</option>
