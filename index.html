@@ -227,13 +227,12 @@
       <label class="field" style="font-weight:400">④ 特徴・こだわり</label>
       <textarea id="descFeature" style="min-height:56px" placeholder="例：スタイルプロファイル機能で、自分が書いたような文体を細かく再現できる"></textarea>
       <div id="jobsSection">
-        <label class="field">このツールの主な機能（ジョブ） <span class="hint">（複数の作業を含む場合に追加。空欄なら1つの作業として扱います）</span></label>
+        <label class="field">このツールの主な機能（ジョブ） <span class="hint">（任意）</span></label>
+        <p style="font-size:12px;color:var(--sub);margin:-2px 0 6px;line-height:1.6">複数の作業を含むツールなら、作業ごとに「時間」「満足度」などを分けて聞けます（例：「音声を記事にする」「記事からスレッズ投稿を作る」）。1つの作業だけなら、この欄は空のままでOKです。機能が思い浮かばないときは、下の「AIモード」でAIに提案してもらえます。</p>
         <div id="jobsList"></div>
-        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <div style="margin-top:6px">
           <button type="button" class="btn btn-sub" onclick="addJob()">＋ 機能を追加</button>
-          <button type="button" class="btn btn-ai" id="jobAiBtn" onclick="aiSuggestJobs()">🤖 AIに機能を提案してもらう</button>
         </div>
-        <div class="status" id="jobStatus"></div>
         <label class="field" style="font-weight:400;margin-top:8px">
           <input type="checkbox" id="bundleCommon" style="accent-color:var(--accent)">
           機能をまたいで共通の設問にまとめる（設問数を減らす）
@@ -259,13 +258,21 @@
       <button class="btn btn-primary" onclick="generate()">アンケートを生成する</button>
 
       <div class="ai-box">
-        <p>🤖 <b>AIモード（任意）</b>：Claude APIキーを入れると、生成した設問の文面・例文をあなたの商品に合わせて最適化します。キーはこのブラウザ内（localStorage）にのみ保存され、送信先はAnthropic APIだけです。共用のパソコンでは、使い終わったら「キー削除」を押してください。</p>
+        <p>🤖 <b>AIモード（任意・精度アップ）</b>：Claude APIキーを入れると、AIが商品に合わせてアンケートの精度を高めます。キーはこのブラウザ内（localStorage）にのみ保存され、送信先はAnthropic APIだけです。共用のパソコンでは、使い終わったら「キー削除」を押してください。</p>
         <div class="ai-row">
           <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
-          <button class="btn btn-ai" id="aiBtn" onclick="aiOptimize()">AI最適化</button>
           <button class="btn btn-sub" onclick="clearKey()" title="このブラウザに保存したAPIキーを消します">キー削除</button>
         </div>
-        <div class="status" id="aiStatus"></div>
+        <div id="aiSuggestRow" style="margin-top:12px">
+          <button class="btn btn-ai" id="jobAiBtn" onclick="aiSuggestJobs()">🤖 商品の機能（ジョブ）をAIに提案してもらう</button>
+          <p style="font-size:12px;color:var(--sub);margin-top:4px;line-height:1.6">上の①〜④の商品説明をもとに、この商品が持つ「独立した作業」を洗い出し、上の「主な機能」欄に自動で入れます（例：「音声を記事にする」「記事からスレッズ投稿を作る」）。作業ごとに設問を分けて聞きたいときに使います。</p>
+          <div class="status" id="jobStatus"></div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn btn-ai" id="aiBtn" onclick="aiOptimize()">🤖 生成した設問をAIで最適化する</button>
+          <p style="font-size:12px;color:var(--sub);margin-top:4px;line-height:1.6">アンケートを生成したあとに押すと、設問の文面・例文をあなたの商品にぴったり合うよう書き換えます。</p>
+          <div class="status" id="aiStatus"></div>
+        </div>
       </div>
     </div>
 
@@ -860,11 +867,13 @@ function materializeQ(q, job) {
 ============================================================ */
 let lastGenSplit = false; // 直近の生成で機能別に展開したか（メーター表示用）
 
-// 機能（ジョブ）欄は「レビュー収集 かつ ツール・アプリ」のときだけ表示する
+// 機能（ジョブ）欄とAI提案ボタンは「レビュー収集 かつ ツール・アプリ」のときだけ表示する
 function updateJobsVisibility() {
   const isReview = document.getElementById("purpose").value === "review";
   const isTool = document.getElementById("productType").value === "tool";
-  document.getElementById("jobsSection").classList.toggle("hidden", !(isReview && isTool));
+  const show = isReview && isTool;
+  document.getElementById("jobsSection").classList.toggle("hidden", !show);
+  document.getElementById("aiSuggestRow").classList.toggle("hidden", !show);
 }
 
 // 商品タイプが変わったら、ゴールのラベルと機能欄の表示を更新
@@ -1180,8 +1189,9 @@ async function aiSuggestJobs() {
     const jobs = arr.filter(x => typeof x === "string" && x.trim()).map(x => x.trim());
     document.getElementById("jobsList").innerHTML = ""; // クリア（内容注入ではない）
     jobs.forEach(j => addJob(j));
+    document.getElementById("jobsSection").scrollIntoView({ behavior: "smooth", block: "center" });
     statusEl.className = "status ok";
-    statusEl.textContent = `✓ ${jobs.length}個の機能を提案しました。内容を確認・編集してから生成してください`;
+    statusEl.textContent = `✓ ${jobs.length}個の機能を提案しました。上の「主な機能」欄で確認・編集してから生成してください`;
   } catch (e) {
     statusEl.className = "status err";
     statusEl.textContent = "エラー：" + friendlyAiError(e);
