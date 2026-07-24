@@ -217,8 +217,15 @@
       </select>
       <label class="field">商品・サービス名 <span class="hint" id="nameHint">（必須）</span></label>
       <input type="text" id="productName" placeholder="例：音声配信をnote記事に変換するツール">
-      <label class="field">どんな商品・サービスですか？ <span class="hint">（詳しく書くほど、AIが商品に合わせて設問や素材を仕上げやすくなります）</span></label>
-      <textarea id="productDesc" style="min-height:140px" placeholder="次の4点を意識して、できるだけ具体的に書いてください。&#10;・誰のための商品か（対象）&#10;・その人のどんな悩み・課題を解決するか&#10;・どうやって解決するか（使い方・提供の流れ）&#10;・特徴やこだわり&#10;&#10;例：stand.fmで音声配信をしている人向けのツール。音声や台本を入れると本人らしい文体のnote記事が自動生成される。文章化が苦手で配信を記事にできていなかった人が、10分ほどで記事化できるようになる。スタイルプロファイル機能で文体を細かく再現できるのが特徴。"></textarea>
+      <label class="field">どんな商品・サービスですか？ <span class="hint">（分かる範囲でOK。書いた内容が設問の例文に反映され、AI最適化の精度も上がります）</span></label>
+      <label class="field" style="font-weight:400;margin-top:6px">① 誰のための商品ですか？（対象）</label>
+      <input type="text" id="descTarget" placeholder="例：stand.fmで音声配信をしている個人事業主">
+      <label class="field" style="font-weight:400">② どんな悩み・課題を解決しますか？</label>
+      <textarea id="descProblem" style="min-height:56px" placeholder="例：音声配信をnote記事にしたいが、文章化に時間がかかって手をつけられない"></textarea>
+      <label class="field" style="font-weight:400">③ どうやって解決しますか？（使い方・提供の流れ）</label>
+      <textarea id="descSolution" style="min-height:56px" placeholder="例：音声または台本を入れるだけで、本人らしい文体のnote記事が自動生成される"></textarea>
+      <label class="field" style="font-weight:400">④ 特徴・こだわり</label>
+      <textarea id="descFeature" style="min-height:56px" placeholder="例：スタイルプロファイル機能で、自分が書いたような文体を細かく再現できる"></textarea>
       <div id="jobsSection">
         <label class="field">このツールの主な機能（ジョブ） <span class="hint">（複数の作業を含む場合に追加。空欄なら1つの作業として扱います）</span></label>
         <div id="jobsList"></div>
@@ -594,6 +601,13 @@ function buildQuestionBank(p) {
   const thanks = isMonitor ? "モニターとしてご協力いただき" : "ご利用いただき";
   const v = TYPE_VERB[p.type] || "使う"; // タイプ別の動詞（使う／受ける／読む）
   const oc = outcomeGroups(p);           // タイプ別の成果・質の設問
+  // 商品説明の4項目を「例文」に反映する（AIなしでも設問が商品に寄る）
+  const exProblem = p.problem || "時間がかかっていた、やり方が分からなかった、続かなかった、など";
+  const exFeature = p.feature || "印象に残った場面や、感動した瞬間など";
+  const exTarget = (p.target && p.problem) ? `${p.target}で、${p.problem}という人`
+    : p.target ? `${p.target}の人`
+    : p.problem ? `${p.problem}という悩みがある人`
+    : "「◯◯で困っている、◯◯な人」のように、状況＋人物像で書いていただけると嬉しいです";
   return {
     _intro: `【${p.name} ご利用後アンケート】\nこのたびは${thanks}ありがとうございました。\n今後のサービス改善と、同じ悩みを持つ方へ分かりやすく届けるために、率直なご感想をお聞かせください。\n良かった点だけでなく、分かりにくかった点・改善してほしい点も遠慮なくご記入ください。`,
     // 複数機能がある場合の導入文（機能ごとに分けて聞く旨を明記）
@@ -611,7 +625,7 @@ function buildQuestionBank(p) {
         text: `「${p.name}」を${v}前、どんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
         jobText: (job) => `「${job}」について、使う前はどんな悩みや不便さがありましたか？できるだけ具体的に教えてください。`,
         format: "長文記述", required: true,
-        example: "時間がかかっていた、やり方が分からなかった、続かなかった、など", tags: ["voice", "lp"] },
+        example: exProblem, tags: ["voice", "lp"] },
       { scope: "perJob",
         text: "その悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。",
         jobText: (job) => `「${job}」の悩みを解決するために、これまで試したことはありますか？あればその結果も教えてください。`,
@@ -639,7 +653,7 @@ function buildQuestionBank(p) {
         example: "半信半疑だった、手が震えた、「もっと早く知りたかった」と思った、など",
         note: "※きれいな感想ではなく、そのときの「生の気持ち」をそのまま書いていただけると嬉しいです。", tags: ["voice", "rank"] },
       { text: "特に「よかった」「助かった」と感じた場面や瞬間があれば教えてください。", format: "長文記述", required: true,
-        example: "印象に残った場面や、感動した瞬間など", tags: ["voice", "lp", "rank"] },
+        example: exFeature, tags: ["voice", "lp", "rank"] },
       { text: "「これは自分ひとりではできなかった」と感じた部分はありますか？", format: "長文記述", required: false,
         example: "時短、クオリティ、続けられたこと、など", tags: ["voice"] },
       { text: `「${p.name}」を通じて、今後どんなことができそうだと感じましたか？`, format: "長文記述", required: false,
@@ -664,7 +678,7 @@ function buildQuestionBank(p) {
 
     target: [
       { text: `「${p.name}」は、どんな人におすすめできそうですか？できるだけ具体的に教えてください。`, format: "長文記述", required: true,
-        example: "「◯◯で困っている、◯◯な人」のように、状況＋人物像で書いていただけると嬉しいです", tags: ["voice", "lp"] },
+        example: exTarget, tags: ["voice", "lp"] },
       { text: "逆に「こういう人には合わないかも」と感じた点があれば教えてください。", format: "長文記述", required: false,
         example: "正直なご意見が今後の案内文の改善に役立ちます", tags: ["improve"] },
       { text: `もし友人・知人に「${p.name}」をすすめるとしたら、「誰に」「どんな一言で」すすめますか？`, format: "長文記述", required: false,
@@ -738,6 +752,21 @@ function buildFumonBank(target, prize) {
 let questions = [];   // 生成された設問（削除可能）
 let introText = "";
 let materialText = ""; // 生成された販促素材
+
+/* 商品説明の4項目を取得（AI最適化・素材変換に渡す構造化テキスト用） */
+function descFields() {
+  const g = (id) => document.getElementById(id).value.trim();
+  return { target: g("descTarget"), problem: g("descProblem"), solution: g("descSolution"), feature: g("descFeature") };
+}
+function getProductDesc() {
+  const d = descFields();
+  const parts = [];
+  if (d.target) parts.push("対象：" + d.target);
+  if (d.problem) parts.push("解決する悩み・課題：" + d.problem);
+  if (d.solution) parts.push("解決方法：" + d.solution);
+  if (d.feature) parts.push("特徴・こだわり：" + d.feature);
+  return parts.join("\n");
+}
 
 /* API呼び出しの失敗を分かりやすい日本語に変換 */
 function friendlyAiError(e) {
@@ -872,11 +901,12 @@ function generate() {
   // レビュー収集モード
   const name = document.getElementById("productName").value.trim();
   if (!name) { showToast("商品・サービス名を入力してください"); return; }
+  const d = descFields();
   const p = {
     name,
-    desc: document.getElementById("productDesc").value.trim(),
     type: document.getElementById("productType").value,
     offer: document.getElementById("offerType").value,
+    target: d.target, problem: d.problem, solution: d.solution, feature: d.feature,
   };
   const bank = buildQuestionBank(p);
   const selected = [...document.querySelectorAll("#goals input:checked")].map(el => el.value);
@@ -1100,7 +1130,7 @@ function showToast(msg) {
 ============================================================ */
 async function aiSuggestJobs() {
   const name = document.getElementById("productName").value.trim();
-  const desc = document.getElementById("productDesc").value.trim();
+  const desc = getProductDesc();
   const statusEl = document.getElementById("jobStatus");
   if (!name && !desc) { statusEl.className = "status err"; statusEl.textContent = "先に商品名か商品説明を入力してください"; return; }
   const key = document.getElementById("apiKey").value.trim();
@@ -1177,7 +1207,7 @@ async function aiOptimize() {
   statusEl.className = "status";
   statusEl.textContent = "AIが設問を最適化中…（30秒ほどかかります）";
 
-  const productInfo = `アンケートの目的：${document.getElementById("purpose").selectedOptions[0].textContent}\n商品名：${document.getElementById("productName").value.trim() || "（未入力）"}\n商品説明：${document.getElementById("productDesc").value.trim() || "（説明なし）"}\n商品タイプ：${document.getElementById("productType").selectedOptions[0].textContent}\n提供形態：${document.getElementById("offerType").selectedOptions[0].textContent}${document.getElementById("purpose").value === "fumon" ? `\n不満を聞きたい対象：${document.getElementById("fumonTarget").value.trim()}` : ""}`;
+  const productInfo = `アンケートの目的：${document.getElementById("purpose").selectedOptions[0].textContent}\n商品名：${document.getElementById("productName").value.trim() || "（未入力）"}\n商品タイプ：${document.getElementById("productType").selectedOptions[0].textContent}\n提供形態：${document.getElementById("offerType").selectedOptions[0].textContent}\n商品説明：\n${getProductDesc() || "（説明なし）"}${document.getElementById("purpose").value === "fumon" ? `\n不満を聞きたい対象：${document.getElementById("fumonTarget").value.trim()}` : ""}`;
 
   const qJson = JSON.stringify(questions.map(q => ({
     text: q.text, format: q.format, required: q.required,
@@ -1275,7 +1305,7 @@ async function generateMaterials() {
   statusEl.className = "status";
   statusEl.textContent = "AIが素材を生成中…（30秒〜1分ほどかかります）";
 
-  const productInfo = `商品名：${document.getElementById("productName").value.trim() || "（未入力）"}\n商品説明：${document.getElementById("productDesc").value.trim() || "（説明なし）"}`;
+  const productInfo = `商品名：${document.getElementById("productName").value.trim() || "（未入力）"}\n商品説明：\n${getProductDesc() || "（説明なし）"}`;
   const specs = selected.map(k => MATERIAL_SPECS[k]).join("\n\n");
 
   // 機能（ジョブ）が宣言されていれば、素材を機能ごとに分けて出す指示を足す
